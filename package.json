@@ -1,10 +1,28 @@
 {
   "name": "navark-core",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "Backend oficial de Navark, un juego multijugador de batalla naval. Desarrollado con NestJS, Prisma y Socket.IO. Soporta partidas hasta 6 jugadores, ranking, equipos, reconexión, y tipos de disparo personalizados.",
+  "author": "Alejandro Rodriguez Romero",
+  "license": "MIT",
   "private": true,
-  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alejandrorodrom/navark-core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alejandrorodrom/navark-core/issues"
+  },
+  "homepage": "https://github.com/alejandrorodrom/navark-core#readme",
+  "keywords": [
+    "navark",
+    "battleship",
+    "nestjs",
+    "prisma",
+    "websocket",
+    "multiplayer",
+    "game",
+    "redis"
+  ],
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
