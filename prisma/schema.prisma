@@ -18,6 +18,7 @@ model User {
   id        Int      @id @default(autoincrement())
   username  String   @unique
   isGuest   Boolean  @default(false)
+  password  String?
   nickname  String?
   color     String?
   createdAt DateTime @default(now())
