@@ -16,10 +16,10 @@ datasource db {
 
 model User {
   id        Int      @id @default(autoincrement())
-  username  String   @unique
+  username  String
   isGuest   Boolean  @default(false)
   password  String?
-  nickname  String?
+  nickname  String?  @unique
   color     String?
   createdAt DateTime @default(now())
 
