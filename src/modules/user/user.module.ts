@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UserController } from './interfaces/controllers/user.controller';
 import { CreateUserService } from './application/services/create-user.service';
-import { FindAllUsersService } from './application/services/find-all-users.service';
 import { PrismaUserRepository } from './infrastructure/prisma/user.prisma.repository';
 import { UpdateUserService } from './application/services/update-user.service';
 import { BcryptPasswordService } from './infrastructure/bcrypt/bcrypt-password.service';
@@ -14,7 +13,6 @@ import { FindOneUserService } from './application/services/find-one-user.service
   providers: [
     CreateUserService,
     FindOneUserService,
-    FindAllUsersService,
     UpdateUserService,
     {
       provide: 'UserRepository',

@@ -1,6 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CreateUserService } from '../../application/services/create-user.service';
-import { FindAllUsersService } from '../../application/services/find-all-users.service';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import { UpdateUserService } from '../../application/services/update-user.service';
@@ -12,7 +11,6 @@ import { FindOneUserService } from '../../application/services/find-one-user.ser
 export class UserController {
   constructor(
     private readonly createUser: CreateUserService,
-    private readonly findAllUsers: FindAllUsersService,
     private readonly updateUser: UpdateUserService,
     private readonly findOneUser: FindOneUserService,
   ) {}
@@ -35,18 +33,6 @@ export class UserController {
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   findOne(@Param('id') id: string) {
     return this.findOneUser.execute(Number(id));
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'Obtener todos los usuarios' })
-  @ApiResponse({
-    status: 200,
-    description: 'Listado de usuarios',
-    type: UserResponseDto,
-    isArray: true,
-  })
-  async findAll() {
-    return this.findAllUsers.execute();
   }
 
   @Patch(':id')

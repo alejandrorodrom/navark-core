@@ -11,8 +11,6 @@ export interface UserRepository {
 
   findById(id: number): Promise<User | null>;
 
-  findAll(): Promise<User[]>;
-
   update(
     id: number,
     data: {
