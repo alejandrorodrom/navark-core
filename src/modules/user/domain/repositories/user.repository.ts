@@ -8,15 +8,4 @@ export interface UserRepository {
     nickname?: string | null;
     color?: string | null;
   }): Promise<User>;
-
-  findById(id: number): Promise<User | null>;
-
-  update(
-    id: number,
-    data: {
-      password?: string | null;
-      nickname?: string | null;
-      color?: string | null;
-    },
-  ): Promise<User>;
 }
