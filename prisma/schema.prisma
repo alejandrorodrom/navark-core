@@ -19,36 +19,44 @@ model User {
   username  String   @unique
   isGuest   Boolean  @default(false)
   password  String?
-  nickname  String   @unique
+  nickname  String // ✅ Ya no es único
   color     String
   createdAt DateTime @default(now())
 
-  gamePlayers GamePlayer[] // Participaciones en partidas
-  spectators  Spectator[] // Partidas donde fue espectador
-  shots       Shot[] // Disparos realizados
+  gamePlayers  GamePlayer[]
+  spectators   Spectator[]
+  shots        Shot[]
+  createdGames Game[]       @relation("UserCreatedGames")
 }
 
 model Game {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  status    String // Ej: "waiting", "in_progress", "finished"
-  joinCode  String   @unique
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  status        String // 'waiting', 'in_progress', 'finished'
+  name          String?  @unique // solo para salas
+  accessCode    String?
+  isPublic      Boolean  @default(false)
+  isMatchmaking Boolean  @default(false)
 
-  gamePlayers GamePlayer[] // Jugadores en esta partida
-  spectators  Spectator[] // Espectadores conectados
-  shots       Shot[] // Disparos realizados en esta partida
+  createdById Int?
+  createdBy   User? @relation("UserCreatedGames", fields: [createdById], references: [id])
+
+  gamePlayers GamePlayer[]
+  spectators  Spectator[]
+  shots       Shot[]
 }
 
 model GamePlayer {
-  id       Int       @id @default(autoincrement())
-  user     User      @relation(fields: [userId], references: [id])
-  userId   Int
-  game     Game      @relation(fields: [gameId], references: [id])
-  gameId   Int
-  board    Json // Estado del tablero de ese jugador
-  team     Int? // Número de equipo (si aplica)
+  id     Int  @id @default(autoincrement())
+  userId Int
+  gameId Int
+  user   User @relation(fields: [userId], references: [id])
+  game   Game @relation(fields: [gameId], references: [id])
+
+  board    Json
+  team     Int?
   isWinner Boolean   @default(false)
-  leftAt   DateTime? // Si abandonó la partida
+  leftAt   DateTime?
 }
 
 model Spectator {
