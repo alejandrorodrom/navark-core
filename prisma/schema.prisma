@@ -33,10 +33,14 @@ model Game {
   id            Int      @id @default(autoincrement())
   createdAt     DateTime @default(now())
   status        String // 'waiting', 'in_progress', 'finished'
-  name          String?  @unique // solo para salas
+  name          String?  @unique
   accessCode    String?
   isPublic      Boolean  @default(false)
   isMatchmaking Boolean  @default(false)
+
+  maxPlayers Int // 2 a 6
+  mode       String // 'individual' | 'teams'
+  teamCount  Int? // solo si mode = 'teams'
 
   createdById Int?
   createdBy   User? @relation("UserCreatedGames", fields: [createdById], references: [id])
