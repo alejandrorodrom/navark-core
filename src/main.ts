@@ -11,6 +11,17 @@ async function bootstrap() {
       'API oficial de Navark, un juego multijugador de batalla naval. Gestiona usuarios, partidas, rankings, equipos y lógica de juego en tiempo real. Esta documentación cubre los endpoints públicos y privados utilizados por el cliente web y servicios internos.',
     )
     .setVersion('1.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        description: 'Introduce tu JWT aquí',
+        in: 'header',
+      },
+      'access-token',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

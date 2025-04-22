@@ -16,11 +16,11 @@ datasource db {
 
 model User {
   id        Int      @id @default(autoincrement())
-  username  String
+  username  String   @unique
   isGuest   Boolean  @default(false)
   password  String?
-  nickname  String?  @unique
-  color     String?
+  nickname  String   @unique
+  color     String
   createdAt DateTime @default(now())
 
   gamePlayers GamePlayer[] // Participaciones en partidas
