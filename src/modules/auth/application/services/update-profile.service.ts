@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { UserRepository } from '../../../user/domain/repositories/user.repository';
-import { UpdateProfileDto } from '../../interfaces/dtos/update-profile.dto';
+import { UpdateProfileDto } from '../../domain/dtos/update-profile.dto';
 import { BcryptPasswordService } from '../../../user/infrastructure/bcrypt/bcrypt-password.service';
 import { User } from '../../../user/domain/entities/user.entity';
 

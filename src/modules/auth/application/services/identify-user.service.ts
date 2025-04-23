@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { UserRepository } from '../../../user/domain/repositories/user.repository';
 import { JwtService } from '@nestjs/jwt';
 import { BcryptPasswordService } from '../../../user/infrastructure/bcrypt/bcrypt-password.service';
-import { IdentifyUserDto } from '../../interfaces/dtos/identify-user.dto';
+import { IdentifyUserDto } from '../../domain/dtos/identify-user.dto';
 import { User } from '../../../user/domain/entities/user.entity';
 
 @Injectable()

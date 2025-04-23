@@ -1,16 +1,16 @@
 import { Body, Controller, Get, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { CreateGuestService } from '../../application/services/create-guest.service';
-import { AuthResponseDto } from '../dtos/auth-response.dto';
+import { AuthResponseDto } from '../../domain/dtos/auth-response.dto';
 import { UserResponseDto } from '../../../user/interfaces/dtos/user-response.dto';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { IdentifyUserDto } from '../dtos/identify-user.dto';
+import { IdentifyUserDto } from '../../domain/dtos/identify-user.dto';
 import { IdentifyUserService } from '../../application/services/identify-user.service';
 import { RefreshTokenService } from '../../application/services/refresh-token.service';
-import { RefreshTokenDto } from '../dtos/refresh-token.dto';
-import { JwtAuthGuard } from '../../infrastructure/jwt/jwt-auth.guard';
+import { RefreshTokenDto } from '../../domain/dtos/refresh-token.dto';
+import { JwtAuthGuard } from '../jwt/jwt-auth.guard';
 import { GetProfileService } from '../../application/services/get-profile.service';
-import { AuthenticatedRequest } from '../../infrastructure/jwt/jwt-request.interface';
-import { UpdateProfileDto } from '../dtos/update-profile.dto';
+import { AuthenticatedRequest } from '../jwt/jwt-request.interface';
+import { UpdateProfileDto } from '../../domain/dtos/update-profile.dto';
 import { UpdateProfileService } from '../../application/services/update-profile.service';
 
 @ApiTags('Autenticación')
