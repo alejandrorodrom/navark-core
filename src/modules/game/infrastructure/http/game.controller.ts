@@ -12,7 +12,7 @@ import {
 } from '@nestjs/swagger';
 import { GameResponseDto } from '../../domain/dto/game-response.dto';
 
-@ApiTags('Game')
+@ApiTags('Juego')
 @ApiBearerAuth()
 @Controller('games')
 export class GameController {
