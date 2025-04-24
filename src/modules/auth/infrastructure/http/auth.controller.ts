@@ -1,17 +1,31 @@
-import { Body, Controller, Get, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { CreateGuestService } from '../../application/services/create-guest.service';
-import { AuthResponseDto } from '../../domain/dtos/auth-response.dto';
-import { UserResponseDto } from '../../../user/interfaces/dtos/user-response.dto';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { IdentifyUserDto } from '../../domain/dtos/identify-user.dto';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { IdentifyUserService } from '../../application/services/identify-user.service';
 import { RefreshTokenService } from '../../application/services/refresh-token.service';
-import { RefreshTokenDto } from '../../domain/dtos/refresh-token.dto';
 import { JwtAuthGuard } from '../jwt/jwt-auth.guard';
 import { GetProfileService } from '../../application/services/get-profile.service';
 import { AuthenticatedRequest } from '../jwt/jwt-request.interface';
-import { UpdateProfileDto } from '../../domain/dtos/update-profile.dto';
 import { UpdateProfileService } from '../../application/services/update-profile.service';
+import { AuthResponseDto } from '../../domain/dto/auth-response.dto';
+import { UserResponseDto } from '../../../user/domain/dto/user-response.dto';
+import { IdentifyUserDto } from '../../domain/dto/identify-user.dto';
+import { RefreshTokenDto } from '../../domain/dto/refresh-token.dto';
+import { UpdateProfileDto } from '../../domain/dto/update-profile.dto';
 
 @ApiTags('Autenticación')
 @Controller('auth')
@@ -89,5 +103,4 @@ export class AuthController {
     const user = await this.updateProfileService.execute(req.user.id, dto);
     return new UserResponseDto(user);
   }
-
 }

@@ -1,14 +1,14 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { UserRepository } from '../../../user/domain/repositories/user.repository';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { BcryptPasswordService } from '../../../user/infrastructure/bcrypt/bcrypt-password.service';
-import { IdentifyUserDto } from '../../domain/dtos/identify-user.dto';
-import { User } from '../../../user/domain/entities/user.entity';
+import { IdentifyUserDto } from '../../domain/dto/identify-user.dto';
+import { User } from '../../../user/domain/entity/user.entity';
+import { UserRepository } from '../../../user/domain/repository/user.repository';
 
 @Injectable()
 export class IdentifyUserService {
   constructor(
-    @Inject('UserRepository') private readonly userRepo: UserRepository,
+    private readonly userRepo: UserRepository,
     private readonly jwtService: JwtService,
     private readonly bcrypt: BcryptPasswordService,
   ) {}

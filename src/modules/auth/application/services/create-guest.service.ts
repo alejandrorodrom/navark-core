@@ -1,12 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { UserRepository } from '../../../user/domain/repositories/user.repository';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '../../../user/domain/entities/user.entity';
+import { UserRepository } from '../../../user/domain/repository/user.repository';
+import { User } from '../../../user/domain/entity/user.entity';
 
 @Injectable()
 export class CreateGuestService {
   constructor(
-    @Inject('UserRepository') private readonly userRepo: UserRepository,
+    private readonly userRepo: UserRepository,
     private readonly jwtService: JwtService,
   ) {}
 

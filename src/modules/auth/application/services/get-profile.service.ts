@@ -1,12 +1,10 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { UserRepository } from '../../../user/domain/repositories/user.repository';
-import { User } from '../../../user/domain/entities/user.entity';
+import { Injectable } from '@nestjs/common';
+import { UserRepository } from '../../../user/domain/repository/user.repository';
+import { User } from '../../../user/domain/entity/user.entity';
 
 @Injectable()
 export class GetProfileService {
-  constructor(
-    @Inject('UserRepository') private readonly userRepo: UserRepository,
-  ) {}
+  constructor(private readonly userRepo: UserRepository) {}
 
   async execute(userId: number): Promise<User | null> {
     return await this.userRepo.findById(userId);

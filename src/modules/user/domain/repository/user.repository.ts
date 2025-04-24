@@ -1,7 +1,7 @@
-import { User } from '../entities/user.entity';
+import { User } from '../entity/user.entity';
 
-export interface UserRepository {
-  create(data: {
+export abstract class UserRepository {
+  abstract create(data: {
     username: string;
     isGuest?: boolean;
     password?: string | null;
@@ -9,11 +9,11 @@ export interface UserRepository {
     color: string;
   }): Promise<User>;
 
-  findByUsername(username: string): Promise<User | null>;
+  abstract findByUsername(username: string): Promise<User | null>;
 
-  findById(id: number): Promise<User | null>;
+  abstract findById(id: number): Promise<User | null>;
 
-  update(
+  abstract update(
     id: number,
     data: {
       password?: string | null;

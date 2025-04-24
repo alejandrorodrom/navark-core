@@ -1,15 +1,15 @@
-import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { RefreshTokenDto } from '../../domain/dtos/refresh-token.dto';
-import { UserRepository } from '../../../user/domain/repositories/user.repository';
-import { User } from '../../../user/domain/entities/user.entity';
 import { JwtPayload } from '../../infrastructure/jwt/jwt-payload.interface';
+import { UserRepository } from '../../../user/domain/repository/user.repository';
+import { RefreshTokenDto } from '../../domain/dto/refresh-token.dto';
+import { User } from '../../../user/domain/entity/user.entity';
 
 @Injectable()
 export class RefreshTokenService {
   constructor(
     private readonly jwtService: JwtService,
-    @Inject('UserRepository') private readonly userRepo: UserRepository,
+    private readonly userRepo: UserRepository,
   ) {}
 
   async execute(dto: RefreshTokenDto): Promise<{

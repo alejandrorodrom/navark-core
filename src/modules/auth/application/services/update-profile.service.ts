@@ -1,13 +1,13 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { UserRepository } from '../../../user/domain/repositories/user.repository';
-import { UpdateProfileDto } from '../../domain/dtos/update-profile.dto';
+import { Injectable } from '@nestjs/common';
 import { BcryptPasswordService } from '../../../user/infrastructure/bcrypt/bcrypt-password.service';
-import { User } from '../../../user/domain/entities/user.entity';
+import { UserRepository } from '../../../user/domain/repository/user.repository';
+import { UpdateProfileDto } from '../../domain/dto/update-profile.dto';
+import { User } from '../../../user/domain/entity/user.entity';
 
 @Injectable()
 export class UpdateProfileService {
   constructor(
-    @Inject('UserRepository') private readonly userRepo: UserRepository,
+    private readonly userRepo: UserRepository,
     private readonly bcrypt: BcryptPasswordService,
   ) {}
 
