@@ -11,6 +11,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { GameResponseDto } from '../../domain/dto/game-response.dto';
+import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
 
 @ApiTags('Juego')
 @ApiBearerAuth()
@@ -37,5 +38,16 @@ export class GameController {
   })
   createManualGame(@Body() dto: CreateGameDto, @UserId() userId: number) {
     return this.gameFacade.createManualGame(dto, userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('matchmaking')
+  @ApiOperation({ summary: 'Unirse a una partida por matchmaking' })
+  @ApiBody({ type: MatchmakingDto })
+  @ApiResponse({ status: 201, type: GameResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  createByMatchmaking(@Body() dto: MatchmakingDto, @UserId() userId: number) {
+    return this.gameFacade.enterMatchmaking(dto, userId);
   }
 }

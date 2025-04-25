@@ -1,5 +1,5 @@
-import { Game } from '../../../../generated/prisma';
-import { GameResponseDto } from '../domain/dto/game-response.dto';
+import { Game } from '../../../../../generated/prisma';
+import { GameResponseDto } from '../../domain/dto/game-response.dto';
 
 export class GameMapper {
   static toResponse(game: Game): GameResponseDto {
