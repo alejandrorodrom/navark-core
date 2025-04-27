@@ -1,15 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { RedisUtils } from '../utils/redis.utils';
 import { SocketWithUser } from '../contracts/socket.types';
 import { PlayerFireDto } from '../contracts/player-fire.dto';
 import { Server } from 'socket.io';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { NuclearStateRedis } from '../redis/nuclear-state.redis';
+import { TurnTimeoutService } from '../services/turn-timeout.service';
 
 /**
- * FireHandler gestiona la acción de disparar durante una partida.
- * Valída turnos, objetivo, tipos de disparo y actualiza estados relacionados.
+ * FireHandler gestiona los disparos en la partida:
+ * - Valída turno y tipo de disparo.
+ * - Gestiona impacto, progreso nuclear y avance de turno.
  */
 @Injectable()
 export class FireHandler {
@@ -19,14 +20,14 @@ export class FireHandler {
     private readonly prismaService: PrismaService,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly nuclearStateRedis: NuclearStateRedis,
-    private readonly redisUtils: RedisUtils,
+    private readonly turnTimeoutService: TurnTimeoutService,
     private readonly server: Server,
   ) {}
 
   /**
-   * Ejecuta la lógica cuando un jugador realiza un disparo.
-   * @param client Cliente que disparó.
-   * @param data Información del disparo (coordenadas, tipo de disparo, partida).
+   * Maneja la acción de disparar de un jugador.
+   * @param client Cliente que dispara.
+   * @param data Datos del disparo (coordenadas, tipo, partida).
    */
   async onPlayerFire(
     client: SocketWithUser,
@@ -57,7 +58,7 @@ export class FireHandler {
     const currentTurnUserId = await this.turnStateRedis.getCurrentTurn(gameId);
     if (currentTurnUserId !== client.data.userId) {
       this.logger.warn(
-        `Turno inválido: userId=${client.data.userId} no tiene el turno en gameId=${gameId}`,
+        `Disparo fuera de turno: userId=${client.data.userId} en gameId=${gameId}`,
       );
       client.emit('player:fire:ack', {
         success: false,
@@ -78,7 +79,7 @@ export class FireHandler {
 
       if (!hasNuclear) {
         this.logger.warn(
-          `Intento de disparo nuclear sin desbloquear: userId=${client.data.userId}, gameId=${gameId}`,
+          `Intento de disparo nuclear no autorizado: userId=${client.data.userId}`,
         );
         client.emit('player:fire:ack', {
           success: false,
@@ -89,7 +90,7 @@ export class FireHandler {
 
       if (usedNuclear) {
         this.logger.warn(
-          `Intento de disparo nuclear duplicado: userId=${client.data.userId}, gameId=${gameId}`,
+          `Intento de usar bomba nuclear duplicada: userId=${client.data.userId}`,
         );
         client.emit('player:fire:ack', {
           success: false,
@@ -104,7 +105,7 @@ export class FireHandler {
     const target = await this.findNextTarget(gameId, client.data.userId);
     if (!target) {
       this.logger.warn(
-        `Sin objetivo válido: userId=${client.data.userId} en partida gameId=${gameId}`,
+        `No hay objetivo válido para userId=${client.data.userId} en gameId=${gameId}`,
       );
       client.emit('player:fire:ack', {
         success: false,
@@ -132,7 +133,7 @@ export class FireHandler {
       (game.mode === 'teams' && shooter.team === target.team)
     ) {
       this.logger.warn(
-        `Disparo inválido: userId=${client.data.userId} intentó disparar a sí mismo o a su equipo en gameId=${gameId}`,
+        `Disparo inválido a sí mismo o compañero: userId=${client.data.userId} en gameId=${gameId}`,
       );
       client.emit('player:fire:ack', {
         success: false,
@@ -145,9 +146,7 @@ export class FireHandler {
       where: { id: target.id },
     });
     if (!targetPlayer) {
-      this.logger.error(
-        `Objetivo no encontrado: targetId=${target.id} en gameId=${gameId}`,
-      );
+      this.logger.error(`Objetivo no encontrado: targetId=${target.id}`);
       client.emit('player:fire:ack', {
         success: false,
         error: 'Objetivo no encontrado',
@@ -179,11 +178,15 @@ export class FireHandler {
 
     client.emit('player:fire:ack', { success: true, hit });
 
-    await this.passTurn(gameId, client.data.userId);
+    // Antes de pasar turno, limpiar timeout anterior
+    await this.turnTimeoutService.clearTurnTimeout(gameId);
+
+    // Luego pasar turno normalmente
+    await this.turnTimeoutService.passTurn(gameId, client.data.userId);
   }
 
   /**
-   * Busca un objetivo válido para disparar.
+   * Encuentra el próximo objetivo válido para disparar.
    */
   private async findNextTarget(gameId: number, shooterUserId: number) {
     const game = await this.prismaService.game.findUnique({
@@ -210,89 +213,7 @@ export class FireHandler {
   }
 
   /**
-   * Gestiona el avance del turno al siguiente jugador activo.
-   */
-  private async passTurn(gameId: number, currentUserId: number) {
-    const game = await this.prismaService.game.findUnique({
-      where: { id: gameId },
-      include: { gamePlayers: true },
-    });
-    if (!game) return;
-
-    const alivePlayers = game.gamePlayers.filter((p) => !p.leftAt);
-
-    if (alivePlayers.length === 1 && game.mode === 'individual') {
-      const winner = alivePlayers[0];
-
-      await this.prismaService.gamePlayer.update({
-        where: { id: winner.id },
-        data: { isWinner: true },
-      });
-      await this.prismaService.game.update({
-        where: { id: gameId },
-        data: { status: 'finished' },
-      });
-
-      await this.redisUtils.clearGameRedisState(gameId);
-
-      this.server.to(`game:${gameId}`).emit('game:ended', {
-        mode: 'individual',
-        winnerUserId: winner.userId,
-      });
-
-      this.logger.log(
-        `Partida ${gameId} terminada. Ganador userId=${winner.userId}`,
-      );
-      return;
-    }
-
-    if (game.mode === 'teams') {
-      const teamsAlive = new Set(alivePlayers.map((p) => p.team));
-
-      if (teamsAlive.size === 1) {
-        const winningTeam = [...teamsAlive][0];
-
-        await this.prismaService.gamePlayer.updateMany({
-          where: { gameId, team: winningTeam },
-          data: { isWinner: true },
-        });
-        await this.prismaService.game.update({
-          where: { id: gameId },
-          data: { status: 'finished' },
-        });
-
-        await this.redisUtils.clearGameRedisState(gameId);
-
-        this.server.to(`game:${gameId}`).emit('game:ended', {
-          mode: 'teams',
-          winningTeam,
-        });
-
-        this.logger.log(
-          `Partida ${gameId} terminada. Equipo ganador=${winningTeam}`,
-        );
-        return;
-      }
-    }
-
-    const playerOrder = alivePlayers.map((p) => p.userId);
-    const currentIndex = playerOrder.indexOf(currentUserId);
-    const nextIndex = (currentIndex + 1) % playerOrder.length;
-    const nextUserId = playerOrder[nextIndex];
-
-    await this.turnStateRedis.setCurrentTurn(gameId, nextUserId);
-
-    this.server.to(`game:${gameId}`).emit('turn:changed', {
-      userId: nextUserId,
-    });
-
-    this.logger.log(
-      `Turno avanzado en gameId=${gameId}. Nuevo turno para userId=${nextUserId}`,
-    );
-  }
-
-  /**
-   * Gestiona el progreso de desbloqueo nuclear en función de los disparos acertados.
+   * Gestiona el progreso de desbloqueo nuclear basado en aciertos.
    */
   private async handleNuclearProgress(
     gameId: number,
@@ -321,7 +242,7 @@ export class FireHandler {
   }
 
   /**
-   * Envía el estado actual de desbloqueo nuclear al jugador.
+   * Envía el estado de progreso nuclear actualizado al cliente.
    */
   private async sendNuclearStatus(gameId: number, client: SocketWithUser) {
     const [progress, available, used] = await Promise.all([

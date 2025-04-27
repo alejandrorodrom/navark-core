@@ -1,0 +1,108 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../../../../prisma/prisma.service';
+import { RedisUtils } from '../utils/redis.utils';
+import { TurnStateRedis } from '../redis/turn-state.redis';
+import { Server } from 'socket.io';
+
+/**
+ * TurnManagerService gestiona el avance de turnos y finalización de partidas.
+ */
+@Injectable()
+export class TurnManagerService {
+  private readonly logger = new Logger(TurnManagerService.name);
+
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly redisUtils: RedisUtils,
+    private readonly turnStateRedis: TurnStateRedis,
+    private readonly server: Server,
+  ) {}
+
+  /**
+   * Avanza el turno al siguiente jugador activo o finaliza la partida si corresponde.
+   *
+   * @param gameId ID de la partida.
+   * @param currentUserId ID del usuario que realizó la última acción (o que agotó su turno).
+   */
+  async passTurn(gameId: number, currentUserId: number): Promise<void> {
+    const game = await this.prismaService.game.findUnique({
+      where: { id: gameId },
+      include: { gamePlayers: true },
+    });
+    if (!game) return;
+
+    const alivePlayers = game.gamePlayers.filter((p) => !p.leftAt);
+
+    // Finalizar partida individual
+    if (alivePlayers.length === 1 && game.mode === 'individual') {
+      const winner = alivePlayers[0];
+
+      await this.prismaService.gamePlayer.update({
+        where: { id: winner.id },
+        data: { isWinner: true },
+      });
+      await this.prismaService.game.update({
+        where: { id: gameId },
+        data: { status: 'finished' },
+      });
+
+      await this.redisUtils.clearGameRedisState(gameId);
+
+      this.server.to(`game:${gameId}`).emit('game:ended', {
+        mode: 'individual',
+        winnerUserId: winner.userId,
+      });
+
+      this.logger.log(
+        `Partida ${gameId} terminada. Ganador userId=${winner.userId}`,
+      );
+      return;
+    }
+
+    // Finalizar partida por equipos
+    if (game.mode === 'teams') {
+      const teamsAlive = new Set(alivePlayers.map((p) => p.team));
+
+      if (teamsAlive.size === 1) {
+        const winningTeam = [...teamsAlive][0];
+
+        await this.prismaService.gamePlayer.updateMany({
+          where: { gameId, team: winningTeam },
+          data: { isWinner: true },
+        });
+        await this.prismaService.game.update({
+          where: { id: gameId },
+          data: { status: 'finished' },
+        });
+
+        await this.redisUtils.clearGameRedisState(gameId);
+
+        this.server.to(`game:${gameId}`).emit('game:ended', {
+          mode: 'teams',
+          winningTeam,
+        });
+
+        this.logger.log(
+          `Partida ${gameId} terminada. Equipo ganador=${winningTeam}`,
+        );
+        return;
+      }
+    }
+
+    // Avanzar turno
+    const playerOrder = alivePlayers.map((p) => p.userId);
+    const currentIndex = playerOrder.indexOf(currentUserId);
+    const nextIndex = (currentIndex + 1) % playerOrder.length;
+    const nextUserId = playerOrder[nextIndex];
+
+    await this.turnStateRedis.setCurrentTurn(gameId, nextUserId);
+
+    this.server.to(`game:${gameId}`).emit('turn:changed', {
+      userId: nextUserId,
+    });
+
+    this.logger.log(
+      `Turno avanzado en gameId=${gameId}. Nuevo turno para userId=${nextUserId}`,
+    );
+  }
+}
