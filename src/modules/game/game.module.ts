@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { GameController } from './infrastructure/http/game.controller';
-import { PrismaService } from '../../prisma/prisma.service';
 import { CreateGameService } from './application/services/create-game.service';
+import { MatchmakingService } from './application/services/matchmaking.service';
 import { GameFacade } from './application/facade/game.facade';
 import { GameRepository } from './domain/repository/game.repository';
 import { GamePrismaRepository } from './infrastructure/prisma/game.prisma.repository';
-import { MatchmakingService } from './application/services/matchmaking.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { RedisModule } from '../../redis/redis.module';
+import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
   controllers: [GameController],
@@ -16,5 +18,6 @@ import { MatchmakingService } from './application/services/matchmaking.service';
     GameFacade,
     { provide: GameRepository, useClass: GamePrismaRepository },
   ],
+  imports: [RedisModule, GatewayModule],
 })
 export class GameModule {}
