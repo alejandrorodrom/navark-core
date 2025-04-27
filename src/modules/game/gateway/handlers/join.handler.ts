@@ -4,6 +4,7 @@ import { SocketWithUser } from '../contracts/socket.types';
 import { Server } from 'socket.io';
 import { ReadyStateRedis } from '../redis/ready-state.redis';
 import { TeamStateRedis } from '../redis/team-state.redis';
+import { GameUtils } from '../utils/game.utils';
 
 /**
  * JoinHandler gestiona la lógica relacionada a:
@@ -19,6 +20,7 @@ export class JoinHandler {
     private readonly prismaService: PrismaService,
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
+    private readonly gameUtils: GameUtils,
     private readonly server: Server,
   ) {}
 
@@ -41,16 +43,23 @@ export class JoinHandler {
       select: { createdById: true },
     });
 
+    const allSocketIds = this.gameUtils.getSocketsInRoom(room);
+    const readySocketIds = await this.readyStateRedis.getAllReady(data.gameId);
+
+    const players = [...allSocketIds].map((socketId) => ({
+      socketId,
+      ready: readySocketIds.includes(socketId),
+    }));
+
     client.to(room).emit('player:joined', { socketId: client.id });
     client.emit('player:joined:ack', {
       success: true,
       room,
       createdById: game?.createdById ?? null,
+      players,
     });
 
-    this.logger.log(
-      `Jugador socketId=${client.id} se unió a room=${room}`,
-    );
+    this.logger.log(`Jugador socketId=${client.id} se unió a room=${room}`);
   }
 
   /**
@@ -65,14 +74,30 @@ export class JoinHandler {
     data: { gameId: number },
   ): Promise<void> {
     const room = `game:${data.gameId}`;
+
     await this.readyStateRedis.setPlayerReady(data.gameId, client.id);
 
-    client.to(room).emit('player:ready', { socketId: client.id });
-    client.emit('player:ready:ack', { success: true });
+    this.server.to(room).emit('player:ready', { socketId: client.id });
 
     this.logger.log(
-      `Jugador socketId=${client.id} marcado como listo en room=${room}`,
+      `Jugador socketId=${client.id} marcado como listo en ${room}`,
     );
+
+    const readySocketIds = await this.readyStateRedis.getAllReady(data.gameId);
+    const allSocketIds = this.gameUtils.getSocketsInRoom(room);
+
+    const allReady = [...allSocketIds].every((socketId) =>
+      readySocketIds.includes(socketId),
+    );
+
+    if (allReady) {
+      this.logger.log(
+        `Todos los jugadores están listos en ${room}. Emitiendo 'all:ready'`,
+      );
+      this.server.to(room).emit('all:ready');
+    }
+
+    client.emit('player:ready:ack', { success: true });
   }
 
   /**
