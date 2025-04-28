@@ -1,5 +1,5 @@
 import { CreateGameDto } from '../dto/create-game.dto';
-import { Game } from '../../../../../generated/prisma';
+import { Game } from '../../../../prisma/prisma.types';
 import { MatchmakingDto } from '../dto/matchmaking.dto';
 
 export abstract class GameRepository {

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { GameRepository } from '../../domain/repository/game.repository';
 import { CreateGameDto } from '../../domain/dto/create-game.dto';
-import { Game } from '../../../../../generated/prisma';
+import { Game } from '../../../../prisma/prisma.types';
 import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
 
 @Injectable()

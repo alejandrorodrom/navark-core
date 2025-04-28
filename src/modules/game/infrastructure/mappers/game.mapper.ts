@@ -1,4 +1,4 @@
-import { Game } from '../../../../../generated/prisma';
+import { Game } from '../../../../prisma/prisma.types';
 import { GameResponseDto } from '../../domain/dto/game-response.dto';
 
 export class GameMapper {
