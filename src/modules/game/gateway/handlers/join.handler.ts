@@ -5,9 +5,11 @@ import { Server } from 'socket.io';
 import { ReadyStateRedis } from '../redis/ready-state.redis';
 import { TeamStateRedis } from '../redis/team-state.redis';
 import { GameUtils } from '../utils/game.utils';
+import { PlayerStateRedis } from '../redis/player-state.redis';
+import { PlayerJoinDto } from '../contracts/player-join.dto';
 
 /**
- * JoinHandler gestiona la lógica relacionada a:
+ * JoinHandler gestiona la lógica relacionada con:
  * - Unirse a una partida.
  * - Marcarse como listo.
  * - Seleccionar equipo (modo por equipos).
@@ -20,46 +22,90 @@ export class JoinHandler {
     private readonly prismaService: PrismaService,
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
+    private readonly playerStateRedis: PlayerStateRedis,
     private readonly gameUtils: GameUtils,
     private readonly server: Server,
   ) {}
 
   /**
-   * Maneja la unión de un jugador a una partida.
-   * Emite un evento de confirmación de unión y proporciona el creador actual.
-   *
-   * @param client Cliente que se une.
-   * @param data Contiene el ID de la partida (`gameId`).
+   * Maneja la unión de un cliente como jugador o espectador.
+   * @param client Socket conectado.
+   * @param data Datos de unión (gameId + rol).
    */
   async onPlayerJoin(
     client: SocketWithUser,
-    data: { gameId: number },
+    data: PlayerJoinDto,
   ): Promise<void> {
     const room = `game:${data.gameId}`;
-    await client.join(room);
+
+    this.logger.log(
+      `Solicitud de unión: socketId=${client.id}, role=${data.role}, gameId=${data.gameId}`,
+    );
 
     const game = await this.prismaService.game.findUnique({
       where: { id: data.gameId },
-      select: { createdById: true },
+      include: { gamePlayers: true },
     });
 
-    const allSocketIds = this.gameUtils.getSocketsInRoom(room);
-    const readySocketIds = await this.readyStateRedis.getAllReady(data.gameId);
+    if (!game) {
+      client.emit('join:denied', { reason: 'Partida no encontrada' });
+      this.logger.warn(`Partida inexistente: gameId=${data.gameId}`);
+      return;
+    }
 
-    const players = [...allSocketIds].map((socketId) => ({
-      socketId,
-      ready: readySocketIds.includes(socketId),
-    }));
+    if (data.role === 'player') {
+      if (game.status !== 'waiting') {
+        client.emit('join:denied', { reason: 'Partida ya iniciada' });
+        this.logger.warn(`Intento de unirse como jugador en partida iniciada.`);
+        return;
+      }
 
-    client.to(room).emit('player:joined', { socketId: client.id });
-    client.emit('player:joined:ack', {
-      success: true,
-      room,
-      createdById: game?.createdById ?? null,
-      players,
-    });
+      if (game.gamePlayers.length >= game.maxPlayers) {
+        client.emit('join:denied', { reason: 'Partida llena' });
+        this.logger.warn(`Partida llena: gameId=${data.gameId}`);
+        return;
+      }
 
-    this.logger.log(`Jugador socketId=${client.id} se unió a room=${room}`);
+      const isAbandoned = await this.playerStateRedis.isAbandoned(
+        data.gameId,
+        client.data.userId,
+      );
+
+      if (isAbandoned) {
+        client.emit('join:denied', { reason: 'Fuiste expulsado por abandono' });
+        this.logger.warn(
+          `Usuario ${client.data.userId} intentó reingresar después de abandono.`,
+        );
+        return;
+      }
+
+      await client.join(room);
+
+      client.to(room).emit('player:joined', { socketId: client.id });
+      client.emit('player:joined:ack', {
+        success: true,
+        room,
+        createdById: game.createdById,
+      });
+
+      this.logger.log(
+        `Jugador socketId=${client.id} unido exitosamente a room=${room}`,
+      );
+    }
+
+    if (data.role === 'spectator') {
+      await client.join(room);
+
+      client.emit('spectator:joined:ack', {
+        success: true,
+        room,
+        createdById: game.createdById,
+      });
+
+      this.logger.log(
+        `Espectador socketId=${client.id} unido como espectador a room=${room}`,
+      );
+    }
   }
 
   /**
@@ -102,7 +148,7 @@ export class JoinHandler {
 
   /**
    * Permite a un jugador seleccionar su equipo en partidas por equipos.
-   * Valida los límites de equipos configurados en la partida.
+   * Valída los límites de equipos configurados en la partida.
    *
    * @param client Cliente que selecciona un equipo.
    * @param data Contiene `gameId` y `team` seleccionado.

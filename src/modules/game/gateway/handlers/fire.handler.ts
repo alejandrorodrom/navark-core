@@ -5,12 +5,15 @@ import { PlayerFireDto } from '../contracts/player-fire.dto';
 import { Server } from 'socket.io';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { NuclearStateRedis } from '../redis/nuclear-state.redis';
+import { GamePlayer } from '../../../../prisma/prisma.types';
 import { TurnTimeoutService } from '../services/turn-timeout.service';
+import { TurnManagerService } from '../services/turn-manager.service';
 
 /**
- * FireHandler gestiona los disparos en la partida:
- * - Valída turno y tipo de disparo.
- * - Gestiona impacto, progreso nuclear y avance de turno.
+ * FireHandler gestiona la acción de disparo durante una partida:
+ * - Validaciones de turno, objetivo y tipo de disparo.
+ * - Actualización de progreso nuclear.
+ * - Avance del turno.
  */
 @Injectable()
 export class FireHandler {
@@ -21,13 +24,14 @@ export class FireHandler {
     private readonly turnStateRedis: TurnStateRedis,
     private readonly nuclearStateRedis: NuclearStateRedis,
     private readonly turnTimeoutService: TurnTimeoutService,
+    private readonly turnManagerService: TurnManagerService,
     private readonly server: Server,
   ) {}
 
   /**
    * Maneja la acción de disparar de un jugador.
    * @param client Cliente que dispara.
-   * @param data Datos del disparo (coordenadas, tipo, partida).
+   * @param data Datos del disparo (coordenadas, tipo de disparo, partida).
    */
   async onPlayerFire(
     client: SocketWithUser,
@@ -44,6 +48,7 @@ export class FireHandler {
       where: { id: gameId },
       include: { gamePlayers: true },
     });
+
     if (!game || game.status !== 'in_progress') {
       this.logger.warn(
         `Disparo rechazado: partida inválida o no iniciada, gameId=${gameId}`,
@@ -68,14 +73,10 @@ export class FireHandler {
     }
 
     if (shotType === 'nuclear') {
-      const hasNuclear = await this.nuclearStateRedis.hasNuclearAvailable(
-        gameId,
-        client.data.userId,
-      );
-      const usedNuclear = await this.nuclearStateRedis.hasNuclearUsed(
-        gameId,
-        client.data.userId,
-      );
+      const [hasNuclear, usedNuclear] = await Promise.all([
+        this.nuclearStateRedis.hasNuclearAvailable(gameId, client.data.userId),
+        this.nuclearStateRedis.hasNuclearUsed(gameId, client.data.userId),
+      ]);
 
       if (!hasNuclear) {
         this.logger.warn(
@@ -87,7 +88,6 @@ export class FireHandler {
         });
         return;
       }
-
       if (usedNuclear) {
         this.logger.warn(
           `Intento de usar bomba nuclear duplicada: userId=${client.data.userId}`,
@@ -102,7 +102,12 @@ export class FireHandler {
       await this.nuclearStateRedis.markNuclearUsed(gameId, client.data.userId);
     }
 
-    const target = await this.findNextTarget(gameId, client.data.userId);
+    const target = this.findNextTarget(
+      game.gamePlayers,
+      client.data.userId,
+      game.mode,
+    );
+
     if (!target) {
       this.logger.warn(
         `No hay objetivo válido para userId=${client.data.userId} en gameId=${gameId}`,
@@ -178,38 +183,36 @@ export class FireHandler {
 
     client.emit('player:fire:ack', { success: true, hit });
 
-    // Antes de pasar turno, limpiar timeout anterior
     await this.turnTimeoutService.clearTurnTimeout(gameId);
-
-    // Luego pasar turno normalmente
-    await this.turnTimeoutService.passTurn(gameId, client.data.userId);
+    await this.turnManagerService.passTurn(gameId, client.data.userId);
   }
 
   /**
-   * Encuentra el próximo objetivo válido para disparar.
+   * Encuentra el siguiente objetivo enemigo disponible.
    */
-  private async findNextTarget(gameId: number, shooterUserId: number) {
-    const game = await this.prismaService.game.findUnique({
-      where: { id: gameId },
-      include: { gamePlayers: true },
-    });
-    if (!game) return null;
-
-    const shooter = game.gamePlayers.find((gp) => gp.userId === shooterUserId);
+  private findNextTarget(
+    gamePlayers: GamePlayer[],
+    shooterUserId: number,
+    mode: string,
+  ): GamePlayer | null {
+    const shooter = gamePlayers.find((gp) => gp.userId === shooterUserId);
     if (!shooter) return null;
 
-    if (game.mode === 'teams') {
-      const enemies = game.gamePlayers.filter(
-        (gp) =>
-          gp.team !== shooter.team && gp.userId !== shooterUserId && !gp.leftAt,
+    if (mode === 'teams') {
+      return (
+        gamePlayers.find(
+          (gp) =>
+            gp.team !== shooter.team &&
+            gp.userId !== shooterUserId &&
+            !gp.leftAt,
+        ) ?? null
       );
-      return enemies[0] ?? null;
     }
 
-    const enemies = game.gamePlayers.filter(
-      (gp) => gp.userId !== shooterUserId && !gp.leftAt,
+    return (
+      gamePlayers.find((gp) => gp.userId !== shooterUserId && !gp.leftAt) ??
+      null
     );
-    return enemies[0] ?? null;
   }
 
   /**
@@ -232,11 +235,10 @@ export class FireHandler {
       gameId,
       userId,
     );
-
     if (progress === 6) {
       await this.nuclearStateRedis.unlockNuclear(gameId, userId);
       this.logger.log(
-        `Usuario ${userId} desbloqueó la bomba nuclear en partida ${gameId}`,
+        `Usuario ${userId} desbloqueó bomba nuclear en partida ${gameId}`,
       );
     }
   }
@@ -251,10 +253,6 @@ export class FireHandler {
       this.nuclearStateRedis.hasNuclearUsed(gameId, client.data.userId),
     ]);
 
-    client.emit('nuclear:status', {
-      progress,
-      hasNuclear: available,
-      used,
-    });
+    client.emit('nuclear:status', { progress, hasNuclear: available, used });
   }
 }

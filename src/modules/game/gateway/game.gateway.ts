@@ -18,6 +18,7 @@ import { FireHandler } from './handlers/fire.handler';
 import { LeaveHandler } from './handlers/leave.handler';
 import { CreatorHandler } from './handlers/creator.handler';
 import { StartGameHandler } from './handlers/start-game.handler';
+import { PlayerJoinDto } from './contracts/player-join.dto';
 
 /**
  * GameGateway maneja la comunicación WebSocket de eventos en tiempo real
@@ -63,7 +64,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('player:join')
   async onPlayerJoin(
     @ConnectedSocket() client: SocketWithUser,
-    @MessageBody() data: { gameId: number },
+    @MessageBody() data: PlayerJoinDto,
   ) {
     return this.joinHandler.onPlayerJoin(client, data);
   }
