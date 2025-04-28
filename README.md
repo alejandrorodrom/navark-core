@@ -42,9 +42,30 @@ Gestiona partidas, control de turnos, reconexión de jugadores, modos individual
 
 ---
 
+## 📆 Endpoints HTTP disponibles
+
+### 🛡️ Autenticación (`/auth`)
+
+| Método | Ruta | Autenticación | Descripción |
+|:------|:-----|:--------------|:------------|
+| `POST` | `/auth/guest` | ❌ No requiere | Crear sesión como invitado. |
+| `POST` | `/auth/identify` | ❌ No requiere | Identificar o registrar usuario. |
+| `POST` | `/auth/refresh` | ❌ No requiere | Renovar access token. |
+| `GET` | `/auth/me` | ✅ Requiere JWT | Obtener perfil del usuario autenticado. |
+| `PATCH` | `/auth/me` | ✅ Requiere JWT | Actualizar perfil del usuario autenticado. |
+
+### 🎮 Gestión de partidas (`/games`)
+
+| Método | Ruta | Autenticación | Descripción |
+|:------|:-----|:--------------|:------------|
+| `POST` | `/games/manual` | ✅ Requiere JWT | Crear una partida manual. |
+| `POST` | `/games/matchmaking` | ✅ Requiere JWT | Unirse a una partida por matchmaking. |
+
+---
+
 ## 📚 Eventos WebSocket
 
-### 📥 Eventos Frontend ➜ Servidor
+### 🛅 Eventos Frontend ➜ Servidor
 
 | Evento | Envía | Descripción |
 |:-------|:------|:------------|
@@ -52,40 +73,38 @@ Gestiona partidas, control de turnos, reconexión de jugadores, modos individual
 | `player:ready` | Jugador | Marca al jugador como listo. |
 | `player:chooseTeam` | Jugador | Selecciona equipo en partidas por equipos. |
 | `player:leave` | Jugador | Abandona la partida. |
-| `creator:transfer` | Creador actual | Transferencia manual del rol de creador a otro jugador. |
+| `creator:transfer` | Creador actual | Transferencia manual del rol de creador. |
 | `game:start` | Creador actual | Solicita iniciar la partida. |
-| `player:fire` | Jugador | Realiza un disparo (`shotType`: `simple`, `cross`, `multi`, `area`, `scan`, `nuclear`). |
+| `player:fire` | Jugador | Realiza un disparo (tipos: `simple`, `cross`, `multi`, `area`, `scan`, `nuclear`). |
 
----
-
-### 📤 Eventos Servidor ➜ Frontend
+### 🛅 Eventos Servidor ➜ Frontend
 
 | Evento | Recibe | Tipo de envío | Descripción |
 |:-------|:------|:----------------|:------------|
 | `player:joined` | Todos en sala | Broadcast | Un jugador se une. |
 | `player:joined:ack` | Jugador que envió | Individual | Confirmación de unión exitosa. |
 | `spectator:joined:ack` | Espectador que se une | Individual | Confirmación de unión como espectador. |
-| `join:denied` | Jugador que falló | Individual | Unión rechazada (sala llena, partida iniciada o expulsado). |
+| `join:denied` | Jugador que falló | Individual | Unión rechazada. |
 | `player:ready` | Todos en sala | Broadcast | Un jugador marcó "listo". |
-| `player:ready:ack` | Jugador que envió | Individual | Confirmación de que marcó "listo". |
-| `all:ready` | Todos en sala | Broadcast | Todos los jugadores están listos. |
-| `player:teamAssigned` | Todos en sala | Broadcast | Un jugador seleccionó un equipo. |
+| `player:ready:ack` | Jugador que envió | Individual | Confirmación de "listo". |
+| `all:ready` | Todos en sala | Broadcast | Todos están listos. |
+| `player:teamAssigned` | Todos en sala | Broadcast | Un jugador seleccionó equipo. |
 | `player:left` | Todos en sala | Broadcast | Un jugador abandonó la partida. |
-| `creator:changed` | Todos en sala | Broadcast | Cambio automático o manual de creador. |
-| `game:start:ack` | Jugador que intentó iniciar | Individual | Resultado del intento de iniciar la partida. |
-| `game:started` | Todos en sala | Broadcast | La partida comenzó oficialmente. |
-| `turn:changed` | Todos en sala | Broadcast | El turno cambió a otro jugador. |
-| `player:fired` | Todos en sala | Broadcast | Un disparo fue ejecutado. |
-| `player:fire:ack` | Jugador que disparó | Individual | Confirmación de disparo propio (hit/miss). |
-| `nuclear:status` | Jugador | Individual | Estado actualizado de progreso nuclear. |
-| `turn:timeout` | Todos en sala | Broadcast | Un jugador perdió su turno por inactividad. |
-| `player:kicked` | Jugador expulsado | Individual | Expulsión automática por 3 turnos perdidos. |
-| `game:ended` | Todos en sala | Broadcast | Fin de partida y resultados (modo individual o equipos). |
-| `game:abandoned` | Todos en sala | Broadcast | Partida eliminada porque quedó vacía. |
+| `creator:changed` | Todos en sala | Broadcast | Cambio de creador. |
+| `game:start:ack` | Jugador que intentó iniciar | Individual | Resultado de intento de inicio. |
+| `game:started` | Todos en sala | Broadcast | Inicio oficial de la partida. |
+| `turn:changed` | Todos en sala | Broadcast | Cambio de turno. |
+| `player:fired` | Todos en sala | Broadcast | Disparo ejecutado. |
+| `player:fire:ack` | Jugador que disparó | Individual | Confirmación de disparo (hit/miss). |
+| `nuclear:status` | Jugador | Individual | Estado del sistema nuclear. |
+| `turn:timeout` | Todos en sala | Broadcast | Jugador perdió turno por inactividad. |
+| `player:kicked` | Jugador expulsado | Individual | Expulsión automática. |
+| `game:ended` | Todos en sala | Broadcast | Fin de partida. |
+| `game:abandoned` | Todos en sala | Broadcast | Partida eliminada por quedar vacía. |
 
 ---
 
-## 🔧 🛠️ Instalación y ejecución local
+## 🔧 Instalación y ejecución local
 
 ```bash
 # Clonar el proyecto
@@ -103,3 +122,4 @@ npx prisma migrate dev
 
 # Levantar el servidor
 yarn start:dev
+```
