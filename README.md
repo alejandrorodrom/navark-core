@@ -36,15 +36,15 @@ Gestiona partidas, control de turnos, reconexión de jugadores, modos individual
 | `/application` | Servicios de aplicación y flujo de negocio (creación de partidas, matchmaking). |
 | `/domain` | Entidades y contratos de dominio. |
 | `/infrastructure` | Adaptadores: Prisma Repository, Redis services, HTTP Controller, WebSocket Gateway. |
-| `/gateway/handlers` | Handlers individuales por evento WebSocket (player:join, player:fire, game:start, etc.). |
-| `/gateway/utils` | Utilidades compartidas (manejo de Redis, salas Socket.IO). |
+| `/gateway/handlers` | Handlers individuales por evento WebSocket (`player:join`, `player:fire`, `game:start`, etc.). |
+| `/gateway/utils` | Utilidades compartidas (manejo de Redis, lógica de salas Socket.IO). |
 | `/gateway/redis` | Control granular de estado en Redis (turnos, jugadores listos, progreso nuclear, etc.). |
 
 ---
 
 ## 📚 Eventos WebSocket
 
-### Eventos Frontend ➜ Servidor
+### 📥 Eventos Frontend ➜ Servidor
 
 | Evento | Envía | Descripción |
 |:-------|:------|:------------|
@@ -54,30 +54,34 @@ Gestiona partidas, control de turnos, reconexión de jugadores, modos individual
 | `player:leave` | Jugador | Abandona la partida. |
 | `creator:transfer` | Creador actual | Transferencia manual del rol de creador a otro jugador. |
 | `game:start` | Creador actual | Solicita iniciar la partida. |
-| `player:fire` | Jugador | Realiza un disparo. Tipos de `shotType`: `simple`, `cross`, `multi`, `area`, `scan`, `nuclear`. |
+| `player:fire` | Jugador | Realiza un disparo (`shotType`: `simple`, `cross`, `multi`, `area`, `scan`, `nuclear`). |
 
-### Eventos Servidor ➜ Frontend
+---
+
+### 📤 Eventos Servidor ➜ Frontend
 
 | Evento | Recibe | Tipo de envío | Descripción |
 |:-------|:------|:----------------|:------------|
 | `player:joined` | Todos en sala | Broadcast | Un jugador se une. |
-| `player:joined:ack` | Jugador que envió | Individual | Confirmación de unirse a la sala. |
-| `player:ready` | Todos en sala | Broadcast | Un jugador se declara listo. |
-| `player:ready:ack` | Jugador que envió | Individual | Confirmación de "listo" propio. |
+| `player:joined:ack` | Jugador que envió | Individual | Confirmación de unión exitosa. |
+| `spectator:joined:ack` | Espectador que se une | Individual | Confirmación de unión como espectador. |
+| `join:denied` | Jugador que falló | Individual | Unión rechazada (sala llena, partida iniciada o expulsado). |
+| `player:ready` | Todos en sala | Broadcast | Un jugador marcó "listo". |
+| `player:ready:ack` | Jugador que envió | Individual | Confirmación de que marcó "listo". |
 | `all:ready` | Todos en sala | Broadcast | Todos los jugadores están listos. |
 | `player:teamAssigned` | Todos en sala | Broadcast | Un jugador seleccionó un equipo. |
 | `player:left` | Todos en sala | Broadcast | Un jugador abandonó la partida. |
-| `creator:changed` | Todos en sala | Broadcast | El creador fue reasignado (manual o automático). |
-| `game:start:ack` | Jugador que envió | Individual | Resultado del intento de iniciar la partida. |
+| `creator:changed` | Todos en sala | Broadcast | Cambio automático o manual de creador. |
+| `game:start:ack` | Jugador que intentó iniciar | Individual | Resultado del intento de iniciar la partida. |
 | `game:started` | Todos en sala | Broadcast | La partida comenzó oficialmente. |
-| `turn:changed` | Todos en sala | Broadcast | Cambio de turno a otro jugador. |
+| `turn:changed` | Todos en sala | Broadcast | El turno cambió a otro jugador. |
 | `player:fired` | Todos en sala | Broadcast | Un disparo fue ejecutado. |
-| `player:fire:ack` | Jugador que disparó | Individual | Confirmación de disparo propio. |
-| `nuclear:status` | Jugador | Individual | Actualización de progreso nuclear. |
-| `turn:timeout` | Todos en sala | Broadcast | Turno perdido por inactividad. |
-| `player:kicked` | Jugador expulsado | Individual | Expulsión por 3 turnos fallidos. |
-| `game:ended` | Todos en sala | Broadcast | Fin de partida y resultados. |
-| `game:abandoned` | Todos en sala | Broadcast | Partida eliminada por quedarse vacía. |
+| `player:fire:ack` | Jugador que disparó | Individual | Confirmación de disparo propio (hit/miss). |
+| `nuclear:status` | Jugador | Individual | Estado actualizado de progreso nuclear. |
+| `turn:timeout` | Todos en sala | Broadcast | Un jugador perdió su turno por inactividad. |
+| `player:kicked` | Jugador expulsado | Individual | Expulsión automática por 3 turnos perdidos. |
+| `game:ended` | Todos en sala | Broadcast | Fin de partida y resultados (modo individual o equipos). |
+| `game:abandoned` | Todos en sala | Broadcast | Partida eliminada porque quedó vacía. |
 
 ---
 
@@ -99,31 +103,3 @@ npx prisma migrate dev
 
 # Levantar el servidor
 yarn start:dev
-```
-
----
-
-## 🛡️ Seguridad y control de estado
-
-- El control de turnos, disparos, desbloqueos nucleares y tiempos límites se realiza **exclusivamente en backend**.
-- Redis administra:
-  - Jugadores listos (`ready`).
-  - Equipos asignados (`teams`).
-  - Turno actual (`turn`).
-  - Progreso nuclear (`nuclear`).
-  - Jugadores abandonados (`abandoned`).
-
-El frontend **no puede alterar** estados críticos de la partida.
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la [MIT License](./LICENSE).
-
----
-
-# 💚 Proyecto 100% Open Source
-
-Desarrollado con pasión para crear la mejor experiencia de batalla naval en tiempo real.
-
