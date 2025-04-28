@@ -3,7 +3,7 @@ import { GameUtils } from '../utils/game.utils';
 import { RedisUtils } from '../utils/redis.utils';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { SocketWithUser } from '../contracts/socket.types';
-import { Server } from 'socket.io';
+import { WebSocketServerService } from '../services/web-socket-server.service';
 
 /**
  * ConnectionHandler gestiona eventos de conexión y desconexión
@@ -17,7 +17,7 @@ export class ConnectionHandler {
     private readonly gameUtils: GameUtils,
     private readonly redisUtils: RedisUtils,
     private readonly prismaService: PrismaService,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
@@ -61,7 +61,9 @@ export class ConnectionHandler {
       `Procesando desconexión en sala ${room} para userId=${client.data.userId}`,
     );
 
-    this.server.to(room).emit('player:left', {
+    const server = this.webSocketServerService.getServer();
+
+    server.to(room).emit('player:left', {
       userId: client.data.userId,
       nickname: client.data.nickname,
     });
@@ -71,11 +73,10 @@ export class ConnectionHandler {
       (id) => id !== client.id,
     );
 
-    // Si la sala queda vacía, eliminar partida
     if (remainingSocketIds.length === 0) {
       this.logger.warn(`Partida vacía detectada. Eliminando gameId=${gameId}.`);
 
-      this.server.to(room).emit('game:abandoned');
+      server.to(room).emit('game:abandoned');
       await this.gameUtils.kickPlayersFromRoom(gameId, 'abandoned');
 
       await Promise.all([
@@ -90,14 +91,13 @@ export class ConnectionHandler {
       return;
     }
 
-    // Si el creador abandona, transferir automáticamente el rol
     if (game.createdById === client.data.userId) {
       this.logger.warn(
         `Creador actual desconectado. Buscando nuevo creador para gameId=${gameId}.`,
       );
 
       const fallbackSocketId = remainingSocketIds[0];
-      const fallbackSocket = this.server.sockets.sockets.get(
+      const fallbackSocket = server.sockets.sockets.get(
         fallbackSocketId,
       ) as SocketWithUser;
 
@@ -107,7 +107,7 @@ export class ConnectionHandler {
           data: { createdById: fallbackSocket.data.userId },
         });
 
-        this.server.to(room).emit('creator:changed', {
+        server.to(room).emit('creator:changed', {
           newCreatorUserId: fallbackSocket.data.userId,
           newCreatorNickname:
             fallbackSocket.data.nickname ?? 'Jugador desconocido',

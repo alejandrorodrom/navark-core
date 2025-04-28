@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { SocketWithUser } from '../contracts/socket.types';
 import { PlayerFireDto } from '../contracts/player-fire.dto';
-import { Server } from 'socket.io';
+import { WebSocketServerService } from '../services/web-socket-server.service';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { NuclearStateRedis } from '../redis/nuclear-state.redis';
 import { GamePlayer } from '../../../../prisma/prisma.types';
@@ -25,7 +25,7 @@ export class FireHandler {
     private readonly nuclearStateRedis: NuclearStateRedis,
     private readonly turnTimeoutService: TurnTimeoutService,
     private readonly turnManagerService: TurnManagerService,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
@@ -171,7 +171,7 @@ export class FireHandler {
       ship.coordinates.some((coord) => coord.x === x && coord.y === y),
     );
 
-    this.server.to(room).emit('player:fired', {
+    this.webSocketServerService.getServer().to(room).emit('player:fired', {
       shooterUserId: client.data.userId,
       x,
       y,

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { PlayerStateRedis } from '../redis/player-state.redis';
 import { TurnManagerService } from './turn-manager.service';
-import { Server } from 'socket.io';
+import { WebSocketServerService } from './web-socket-server.service';
 
 /**
  * TurnTimeoutService gestiona el control de tiempo de turnos:
@@ -18,7 +18,7 @@ export class TurnTimeoutService {
     private readonly turnStateRedis: TurnStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
     private readonly turnManagerService: TurnManagerService,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
@@ -87,10 +87,12 @@ export class TurnTimeoutService {
       currentUserId,
     );
 
+    const server = this.webSocketServerService.getServer();
+
     if (missedTurns >= 3) {
       await this.playerStateRedis.markAsAbandoned(gameId, currentUserId);
 
-      const sockets = this.server.sockets.sockets;
+      const sockets = server.sockets.sockets;
       for (const socket of sockets.values()) {
         const socketUser = socket.data as { userId: number };
         if (socketUser?.userId === currentUserId) {
@@ -109,7 +111,7 @@ export class TurnTimeoutService {
     }
 
     // Notificar pérdida de turno
-    this.server.to(`game:${gameId}`).emit('turn:timeout', {
+    server.to(`game:${gameId}`).emit('turn:timeout', {
       userId: currentUserId,
     });
 

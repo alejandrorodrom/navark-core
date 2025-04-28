@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Server } from 'socket.io';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { WebSocketServerService } from '../services/web-socket-server.service';
 import { Adapter } from 'socket.io-adapter';
 
 @Injectable()
@@ -9,12 +9,13 @@ export class GameUtils {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   getSocketsInRoom(room: string) {
+    const server = this.webSocketServerService.getServer();
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    const adapter = this.server.adapter as unknown as Adapter;
+    const adapter = server.adapter as unknown as Adapter;
     return adapter.rooms.get(room) ?? new Set<string>();
   }
 
@@ -30,11 +31,12 @@ export class GameUtils {
     gameId: number,
     reason: 'ended' | 'abandoned' = 'ended',
   ): Promise<void> {
+    const server = this.webSocketServerService.getServer();
     const room = `game:${gameId}`;
     const socketsInRoom = this.getSocketsInRoom(room);
 
     for (const socketId of socketsInRoom) {
-      const socket = this.server.sockets.sockets.get(socketId);
+      const socket = server.sockets.sockets.get(socketId);
       if (socket) {
         socket.emit('game:finished', { reason });
         await socket.leave(room);

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { GameUtils } from '../utils/game.utils';
 import { SocketWithUser } from '../contracts/socket.types';
-import { Server } from 'socket.io';
+import { WebSocketServerService } from '../services/web-socket-server.service';
 
 /**
  * CreatorHandler gestiona la transferencia manual del rol de creador
@@ -15,12 +15,12 @@ export class CreatorHandler {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly gameUtils: GameUtils,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
    * Maneja la transferencia del rol de creador de una partida a otro jugador conectado.
-   * Valida permisos, estado de la partida, y notifica a todos los jugadores.
+   * Valída permisos, estado de la partida, y notifica a todos los jugadores.
    *
    * @param client Cliente que solicita la transferencia.
    * @param data Datos de la transferencia (gameId y targetUserId).
@@ -60,9 +60,11 @@ export class CreatorHandler {
       return;
     }
 
+    const server = this.webSocketServerService.getServer();
+
     const allSocketIds = this.gameUtils.getSocketsInRoom(room);
     const targetSocketId = [...allSocketIds].find((socketId) => {
-      const targetSocket = this.server.sockets.sockets.get(
+      const targetSocket = server.sockets.sockets.get(
         socketId,
       ) as SocketWithUser;
       return targetSocket?.data?.userId === data.targetUserId;
@@ -79,7 +81,7 @@ export class CreatorHandler {
       return;
     }
 
-    const targetSocket = this.server.sockets.sockets.get(
+    const targetSocket = server.sockets.sockets.get(
       targetSocketId,
     ) as SocketWithUser;
 
@@ -88,7 +90,7 @@ export class CreatorHandler {
       data: { createdById: data.targetUserId },
     });
 
-    this.server.to(room).emit('creator:changed', {
+    server.to(room).emit('creator:changed', {
       newCreatorUserId: data.targetUserId,
       newCreatorNickname: targetSocket?.data?.nickname ?? 'Jugador desconocido',
     });

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisUtils } from '../utils/redis.utils';
 import { TurnStateRedis } from '../redis/turn-state.redis';
-import { Server } from 'socket.io';
+import { WebSocketServerService } from './web-socket-server.service';
 
 /**
  * TurnManagerService gestiona el avance de turnos y finalización de partidas.
@@ -15,7 +15,7 @@ export class TurnManagerService {
     private readonly prismaService: PrismaService,
     private readonly redisUtils: RedisUtils,
     private readonly turnStateRedis: TurnStateRedis,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
@@ -32,6 +32,7 @@ export class TurnManagerService {
     if (!game) return;
 
     const alivePlayers = game.gamePlayers.filter((p) => !p.leftAt);
+    const server = this.webSocketServerService.getServer();
 
     // Finalizar partida individual
     if (alivePlayers.length === 1 && game.mode === 'individual') {
@@ -48,7 +49,7 @@ export class TurnManagerService {
 
       await this.redisUtils.clearGameRedisState(gameId);
 
-      this.server.to(`game:${gameId}`).emit('game:ended', {
+      server.to(`game:${gameId}`).emit('game:ended', {
         mode: 'individual',
         winnerUserId: winner.userId,
       });
@@ -77,7 +78,7 @@ export class TurnManagerService {
 
         await this.redisUtils.clearGameRedisState(gameId);
 
-        this.server.to(`game:${gameId}`).emit('game:ended', {
+        server.to(`game:${gameId}`).emit('game:ended', {
           mode: 'teams',
           winningTeam,
         });
@@ -97,7 +98,7 @@ export class TurnManagerService {
 
     await this.turnStateRedis.setCurrentTurn(gameId, nextUserId);
 
-    this.server.to(`game:${gameId}`).emit('turn:changed', {
+    server.to(`game:${gameId}`).emit('turn:changed', {
       userId: nextUserId,
     });
 

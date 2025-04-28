@@ -8,10 +8,14 @@ import { LeaveHandler } from './handlers/leave.handler';
 import { StartGameHandler } from './handlers/start-game.handler';
 import { GameUtils } from './utils/game.utils';
 import { RedisUtils } from './utils/redis.utils';
-import { RedisModule } from '../../../redis/redis.module';
+import { WebSocketServerService } from './services/web-socket-server.service';
+import { PrismaModule } from '../../../prisma/prisma.module';
+import { RedisStateModule } from './redis/redis-state.module';
+import { TurnManagerService } from './services/turn-manager.service';
+import { TurnTimeoutService } from './services/turn-timeout.service';
 
 @Module({
-  imports: [RedisModule],
+  imports: [RedisStateModule, PrismaModule],
   providers: [
     GameGateway,
     ConnectionHandler,
@@ -22,6 +26,9 @@ import { RedisModule } from '../../../redis/redis.module';
     StartGameHandler,
     GameUtils,
     RedisUtils,
+    TurnManagerService,
+    TurnTimeoutService,
+    WebSocketServerService,
   ],
   exports: [GameGateway],
 })

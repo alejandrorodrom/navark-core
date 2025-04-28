@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { SocketWithUser } from '../contracts/socket.types';
-import { Server } from 'socket.io';
+import { WebSocketServerService } from '../services/web-socket-server.service';
 import { ReadyStateRedis } from '../redis/ready-state.redis';
 import { TeamStateRedis } from '../redis/team-state.redis';
 import { GameUtils } from '../utils/game.utils';
@@ -24,7 +24,7 @@ export class JoinHandler {
     private readonly teamStateRedis: TeamStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
     private readonly gameUtils: GameUtils,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
@@ -123,7 +123,10 @@ export class JoinHandler {
 
     await this.readyStateRedis.setPlayerReady(data.gameId, client.id);
 
-    this.server.to(room).emit('player:ready', { socketId: client.id });
+    this.webSocketServerService
+      .getServer()
+      .to(room)
+      .emit('player:ready', { socketId: client.id });
 
     this.logger.log(
       `Jugador socketId=${client.id} marcado como listo en ${room}`,
@@ -140,7 +143,7 @@ export class JoinHandler {
       this.logger.log(
         `Todos los jugadores están listos en ${room}. Emitiendo 'all:ready'`,
       );
-      this.server.to(room).emit('all:ready');
+      this.webSocketServerService.getServer().to(room).emit('all:ready');
     }
 
     client.emit('player:ready:ack', { success: true });
@@ -198,10 +201,14 @@ export class JoinHandler {
     await this.teamStateRedis.setPlayerTeam(data.gameId, client.id, data.team);
 
     client.emit('player:chooseTeam:ack', { success: true });
-    this.server.to(room).emit('player:teamAssigned', {
-      socketId: client.id,
-      team: data.team,
-    });
+
+    this.webSocketServerService
+      .getServer()
+      .to(room)
+      .emit('player:teamAssigned', {
+        socketId: client.id,
+        team: data.team,
+      });
 
     this.logger.log(
       `Jugador socketId=${client.id} asignado exitosamente al team=${data.team} en room=${room}`,

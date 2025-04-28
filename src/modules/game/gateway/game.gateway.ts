@@ -3,6 +3,7 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -19,6 +20,7 @@ import { LeaveHandler } from './handlers/leave.handler';
 import { CreatorHandler } from './handlers/creator.handler';
 import { StartGameHandler } from './handlers/start-game.handler';
 import { PlayerJoinDto } from './contracts/player-join.dto';
+import { WebSocketServerService } from './services/web-socket-server.service';
 
 /**
  * GameGateway maneja la comunicación WebSocket de eventos en tiempo real
@@ -29,7 +31,9 @@ import { PlayerJoinDto } from './contracts/player-join.dto';
     origin: '*',
   },
 })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -40,7 +44,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly leaveHandler: LeaveHandler,
     private readonly creatorHandler: CreatorHandler,
     private readonly startGameHandler: StartGameHandler,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
+
+  afterInit() {
+    this.webSocketServerService.setServer(this.server);
+  }
 
   /**
    * Evento de conexión de un nuevo cliente WebSocket.

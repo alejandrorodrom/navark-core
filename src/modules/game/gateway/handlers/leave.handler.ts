@@ -3,7 +3,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { GameUtils } from '../utils/game.utils';
 import { RedisUtils } from '../utils/redis.utils';
 import { SocketWithUser } from '../contracts/socket.types';
-import { Server } from 'socket.io';
+import { WebSocketServerService } from '../services/web-socket-server.service';
 
 /**
  * LeaveHandler maneja la lógica cuando un jugador abandona voluntariamente una partida,
@@ -17,7 +17,7 @@ export class LeaveHandler {
     private readonly prismaService: PrismaService,
     private readonly gameUtils: GameUtils,
     private readonly redisUtils: RedisUtils,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
@@ -38,8 +38,9 @@ export class LeaveHandler {
       `Jugador socketId=${client.id} (userId=${client.data.userId}) solicitó abandonar partida gameId=${data.gameId}`,
     );
 
-    // Notificar a los demás en la sala
-    this.server.to(room).emit('player:left', {
+    const server = this.webSocketServerService.getServer();
+
+    server.to(room).emit('player:left', {
       userId: client.data.userId,
       nickname: client.data.nickname,
     });
@@ -65,7 +66,7 @@ export class LeaveHandler {
         `La partida gameId=${gameId} quedó vacía tras la salida. Eliminando partida...`,
       );
 
-      this.server.to(room).emit('game:abandoned');
+      server.to(room).emit('game:abandoned');
       await this.gameUtils.kickPlayersFromRoom(gameId, 'abandoned');
 
       await this.prismaService.shot.deleteMany({ where: { gameId } });
@@ -86,7 +87,7 @@ export class LeaveHandler {
       );
 
       const fallbackSocketId = [...allSocketIds][0];
-      const fallbackSocket = this.server.sockets.sockets.get(
+      const fallbackSocket = server.sockets.sockets.get(
         fallbackSocketId,
       ) as SocketWithUser;
 
@@ -96,9 +97,10 @@ export class LeaveHandler {
           data: { createdById: fallbackSocket.data.userId },
         });
 
-        this.server.to(room).emit('creator:changed', {
+        server.to(room).emit('creator:changed', {
           newCreatorUserId: fallbackSocket.data.userId,
-          newCreatorNickname: fallbackSocket.data.nickname ?? 'Jugador desconocido',
+          newCreatorNickname:
+            fallbackSocket.data.nickname ?? 'Jugador desconocido',
         });
 
         this.logger.log(

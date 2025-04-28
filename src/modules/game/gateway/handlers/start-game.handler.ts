@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { GameUtils } from '../utils/game.utils';
 import { SocketWithUser } from '../contracts/socket.types';
-import { Server } from 'socket.io';
+import { WebSocketServerService } from '../services/web-socket-server.service';
 import { ReadyStateRedis } from '../redis/ready-state.redis';
 import { TeamStateRedis } from '../redis/team-state.redis';
 import { TurnStateRedis } from '../redis/turn-state.redis';
@@ -21,7 +21,7 @@ export class StartGameHandler {
     private readonly teamStateRedis: TeamStateRedis,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly gameUtils: GameUtils,
-    private readonly server: Server,
+    private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
@@ -122,11 +122,14 @@ export class StartGameHandler {
     // Inicializar primer turno
     await this.turnStateRedis.setCurrentTurn(game.id, game.createdById);
 
-    this.server.to(room).emit('turn:changed', {
+    const server = this.webSocketServerService.getServer();
+
+    server.to(room).emit('turn:changed', {
       userId: game.createdById,
     });
 
-    this.server.to(room).emit('game:started', { gameId: data.gameId });
+    server.to(room).emit('game:started', { gameId: data.gameId });
+
     client.emit('game:start:ack', { success: true });
 
     this.logger.log(`Partida iniciada exitosamente. gameId=${data.gameId}`);
