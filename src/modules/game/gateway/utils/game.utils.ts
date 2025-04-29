@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { WebSocketServerService } from '../services/web-socket-server.service';
 import { Adapter } from 'socket.io-adapter';
 
@@ -8,7 +7,6 @@ export class GameUtils {
   private readonly logger = new Logger(GameUtils.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
@@ -17,14 +15,6 @@ export class GameUtils {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const adapter = server.adapter as unknown as Adapter;
     return adapter.rooms.get(room) ?? new Set<string>();
-  }
-
-  async findGameIdBySocket(socketId: string): Promise<number | null> {
-    const gamePlayer = await this.prismaService.gamePlayer.findFirst({
-      where: { board: { path: ['socketId'], equals: socketId } },
-      select: { gameId: true },
-    });
-    return gamePlayer?.gameId ?? null;
   }
 
   async kickPlayersFromRoom(

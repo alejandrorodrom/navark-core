@@ -13,6 +13,8 @@ import { PrismaModule } from '../../../prisma/prisma.module';
 import { RedisStateModule } from './redis/redis-state.module';
 import { TurnManagerService } from './services/turn-manager.service';
 import { TurnTimeoutService } from './services/turn-timeout.service';
+import { BoardGenerationService } from './services/board-generation.service';
+import { ShotService } from './services/shot.service';
 
 @Module({
   imports: [RedisStateModule, PrismaModule],
@@ -29,6 +31,8 @@ import { TurnTimeoutService } from './services/turn-timeout.service';
     TurnManagerService,
     TurnTimeoutService,
     WebSocketServerService,
+    BoardGenerationService,
+    ShotService,
   ],
   exports: [GameGateway],
 })

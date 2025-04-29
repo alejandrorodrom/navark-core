@@ -11,6 +11,7 @@ export class GameMapper {
       isMatchmaking: game.isMatchmaking,
       maxPlayers: game.maxPlayers,
       mode: game.mode as 'individual' | 'teams',
+      difficulty: game.difficulty as 'easy' | 'medium' | 'hard',
       teamCount: game.teamCount ?? undefined,
       status: game.status,
       createdAt: game.createdAt,

@@ -38,13 +38,17 @@ export class ConnectionHandler {
   async handleDisconnect(client: SocketWithUser): Promise<void> {
     this.logger.log(`Cliente desconectado: socketId=${client.id}`);
 
-    const gameId = await this.gameUtils.findGameIdBySocket(client.id);
-    if (!gameId) {
-      this.logger.warn(
-        `No se encontró partida asociada al socketId=${client.id}`,
-      );
+    // 🔥 NUEVO: Obtener gameId y userId directamente desde Redis
+    const mapping = await this.redisUtils.getSocketMapping(client.id);
+
+    if (!mapping) {
+      this.logger.warn(`No se encontró mapeo para socketId=${client.id}`);
       return;
     }
+
+    const { gameId, userId } = mapping;
+
+    await this.redisUtils.deleteSocketMapping(client.id);
 
     const game = await this.prismaService.game.findUnique({
       where: { id: gameId },
@@ -58,13 +62,13 @@ export class ConnectionHandler {
 
     const room = `game:${gameId}`;
     this.logger.log(
-      `Procesando desconexión en sala ${room} para userId=${client.data.userId}`,
+      `Procesando desconexión en sala ${room} para userId=${userId}`,
     );
 
     const server = this.webSocketServerService.getServer();
 
     server.to(room).emit('player:left', {
-      userId: client.data.userId,
+      userId,
       nickname: client.data.nickname,
     });
 
@@ -91,7 +95,7 @@ export class ConnectionHandler {
       return;
     }
 
-    if (game.createdById === client.data.userId) {
+    if (game.createdById === userId) {
       this.logger.warn(
         `Creador actual desconectado. Buscando nuevo creador para gameId=${gameId}.`,
       );

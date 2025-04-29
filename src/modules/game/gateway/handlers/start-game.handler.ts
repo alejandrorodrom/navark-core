@@ -6,7 +6,7 @@ import { WebSocketServerService } from '../services/web-socket-server.service';
 import { ReadyStateRedis } from '../redis/ready-state.redis';
 import { TeamStateRedis } from '../redis/team-state.redis';
 import { TurnStateRedis } from '../redis/turn-state.redis';
-import { BoardGenerationService } from '../../application/services/bord-generation.service';
+import { BoardGenerationService } from '../services/board-generation.service';
 
 @Injectable()
 export class StartGameHandler {

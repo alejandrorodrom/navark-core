@@ -7,7 +7,7 @@ import { TurnStateRedis } from '../redis/turn-state.redis';
 import { NuclearStateRedis } from '../redis/nuclear-state.redis';
 import { TurnTimeoutService } from '../services/turn-timeout.service';
 import { TurnManagerService } from '../services/turn-manager.service';
-import { ShotService } from '../../application/services/shot.service';
+import { ShotService } from '../services/shot.service';
 import { Board } from '../../domain/models/board.model';
 import { ShotType } from '../../domain/models/shot.model';
 
@@ -88,8 +88,8 @@ export class FireHandler {
       shooterUserId: client.data.userId,
       x,
       y,
-      hit: result.hit,
-      sunk: result.sunkShipId !== undefined,
+      hit: result.shot.hit,
+      sunk: result.shot.sunkShipId !== undefined,
     });
 
     await this.prismaService.game.update({
@@ -97,14 +97,18 @@ export class FireHandler {
       data: { board: JSON.stringify(result.updatedBoard) },
     });
 
-    if (result.hit) {
-      const hitShip = board.ships.find((ship) =>
-        ship.positions.some((p) => p.row === y && p.col === x),
+    if (result.shot.hit) {
+      const hitShip = result.updatedBoard.ships.find((ship) =>
+        ship.positions.some(
+          (p) =>
+            p.row === result.shot.target.row &&
+            p.col === result.shot.target.col,
+        ),
       );
       const hitShipOwnerId = hitShip?.ownerId;
 
       if (hitShipOwnerId !== null && hitShipOwnerId !== undefined) {
-        const playerStillAlive = board.ships.some(
+        const playerStillAlive = result.updatedBoard.ships.some(
           (ship) => ship.ownerId === hitShipOwnerId && !ship.isSunk,
         );
 
@@ -114,7 +118,10 @@ export class FireHandler {
             data: { leftAt: new Date() },
           });
 
-          server.to(room).emit('player:eliminated', { userId: hitShipOwnerId });
+          server.to(room).emit('player:eliminated', {
+            userId: hitShipOwnerId,
+          });
+
           this.logger.log(
             `Jugador userId=${hitShipOwnerId} eliminado al perder todos sus barcos.`,
           );
@@ -125,15 +132,15 @@ export class FireHandler {
     await this.handleNuclearProgress(
       gameId,
       client.data.userId,
-      result.hit,
+      result.shot.hit,
       shotType,
     );
     await this.sendNuclearStatus(gameId, client);
 
     client.emit('player:fire:ack', {
       success: true,
-      hit: result.hit,
-      sunk: result.sunkShipId !== undefined,
+      hit: result.shot.hit,
+      sunk: result.shot.sunkShipId !== undefined,
     });
 
     await this.turnTimeoutService.clearTurnTimeout(gameId);
@@ -151,10 +158,12 @@ export class FireHandler {
       await this.nuclearStateRedis.resetNuclearProgress(gameId, userId);
       return;
     }
+
     const progress = await this.nuclearStateRedis.incrementNuclearProgress(
       gameId,
       userId,
     );
+
     if (progress === 6) {
       await this.nuclearStateRedis.unlockNuclear(gameId, userId);
       this.logger.log(
@@ -173,6 +182,10 @@ export class FireHandler {
       this.nuclearStateRedis.hasNuclearUsed(gameId, client.data.userId),
     ]);
 
-    client.emit('nuclear:status', { progress, hasNuclear: available, used });
+    client.emit('nuclear:status', {
+      progress,
+      hasNuclear: available,
+      used,
+    });
   }
 }

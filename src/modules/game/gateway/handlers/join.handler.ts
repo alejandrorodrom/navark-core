@@ -7,6 +7,7 @@ import { TeamStateRedis } from '../redis/team-state.redis';
 import { GameUtils } from '../utils/game.utils';
 import { PlayerStateRedis } from '../redis/player-state.redis';
 import { PlayerJoinDto } from '../contracts/player-join.dto';
+import { RedisUtils } from '../utils/redis.utils';
 
 /**
  * JoinHandler gestiona la lógica relacionada con:
@@ -23,12 +24,14 @@ export class JoinHandler {
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
+    private readonly redisUtils: RedisUtils,
     private readonly gameUtils: GameUtils,
     private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
   /**
    * Maneja la unión de un cliente como jugador o espectador.
+   * Valida duplicación, estado de la partida y restricciones por abandono.
    * @param client Socket conectado.
    * @param data Datos de unión (gameId + rol).
    */
@@ -44,7 +47,7 @@ export class JoinHandler {
 
     const game = await this.prismaService.game.findUnique({
       where: { id: data.gameId },
-      include: { gamePlayers: true },
+      include: { gamePlayers: true, spectators: true },
     });
 
     if (!game) {
@@ -66,6 +69,17 @@ export class JoinHandler {
         return;
       }
 
+      const isAlreadyJoined = game.gamePlayers.some(
+        (p) => p.userId === client.data.userId,
+      );
+      if (isAlreadyJoined) {
+        client.emit('join:denied', { reason: 'Ya estás en la partida' });
+        this.logger.warn(
+          `Jugador duplicado: userId=${client.data.userId} ya está en gameId=${data.gameId}`,
+        );
+        return;
+      }
+
       const isAbandoned = await this.playerStateRedis.isAbandoned(
         data.gameId,
         client.data.userId,
@@ -80,6 +94,11 @@ export class JoinHandler {
       }
 
       await client.join(room);
+      await this.redisUtils.saveSocketMapping(
+        client.id,
+        client.data.userId,
+        data.gameId,
+      );
 
       client.to(room).emit('player:joined', { socketId: client.id });
       client.emit('player:joined:ack', {
@@ -94,6 +113,19 @@ export class JoinHandler {
     }
 
     if (data.role === 'spectator') {
+      const isAlreadySpectating = game.spectators.some(
+        (s) => s.userId === client.data.userId,
+      );
+      if (isAlreadySpectating) {
+        client.emit('join:denied', {
+          reason: 'Ya estás observando esta partida',
+        });
+        this.logger.warn(
+          `Usuario duplicado: userId=${client.data.userId} ya es espectador de gameId=${data.gameId}`,
+        );
+        return;
+      }
+
       await client.join(room);
 
       client.emit('spectator:joined:ack', {
@@ -111,7 +143,6 @@ export class JoinHandler {
   /**
    * Marca al jugador como listo dentro de la partida.
    * Emite un evento de confirmación y actualiza estado en Redis.
-   *
    * @param client Cliente que se marca como listo.
    * @param data Contiene el ID de la partida (`gameId`).
    */
@@ -152,7 +183,6 @@ export class JoinHandler {
   /**
    * Permite a un jugador seleccionar su equipo en partidas por equipos.
    * Valída los límites de equipos configurados en la partida.
-   *
    * @param client Cliente que selecciona un equipo.
    * @param data Contiene `gameId` y `team` seleccionado.
    */
