@@ -22,6 +22,9 @@ export class GameResponseDto {
   @ApiProperty()
   mode: 'individual' | 'teams';
 
+  @ApiProperty()
+  difficulty: 'easy' | 'medium' | 'hard';
+
   @ApiProperty({ required: false })
   teamCount?: number;
 

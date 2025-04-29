@@ -20,9 +20,10 @@ export class TurnManagerService {
 
   /**
    * Avanza el turno al siguiente jugador activo o finaliza la partida si corresponde.
+   * También elimina automáticamente jugadores sin barcos vivos.
    *
    * @param gameId ID de la partida.
-   * @param currentUserId ID del usuario que realizó la última acción (o que agotó su turno).
+   * @param currentUserId ID del jugador que realizó la última acción.
    */
   async passTurn(gameId: number, currentUserId: number): Promise<void> {
     const game = await this.prismaService.game.findUnique({
@@ -31,8 +32,30 @@ export class TurnManagerService {
     });
     if (!game) return;
 
-    const alivePlayers = game.gamePlayers.filter((p) => !p.leftAt);
     const server = this.webSocketServerService.getServer();
+
+    // Eliminar jugadores sin barcos vivos
+    const alivePlayers: typeof game.gamePlayers = [];
+    for (const player of game.gamePlayers) {
+      const hasShipsAlive = await this.checkIfPlayerHasShipsAlive(
+        gameId,
+        player.userId,
+      );
+      if (!player.leftAt && hasShipsAlive) {
+        alivePlayers.push(player);
+      } else if (!player.leftAt && !hasShipsAlive) {
+        await this.prismaService.gamePlayer.update({
+          where: { id: player.id },
+          data: { leftAt: new Date() },
+        });
+        server.to(`game:${gameId}`).emit('player:eliminated', {
+          userId: player.userId,
+        });
+        this.logger.log(
+          `Jugador userId=${player.userId} eliminado por perder todos sus barcos.`,
+        );
+      }
+    }
 
     // Finalizar partida individual
     if (alivePlayers.length === 1 && game.mode === 'individual') {
@@ -105,5 +128,30 @@ export class TurnManagerService {
     this.logger.log(
       `Turno avanzado en gameId=${gameId}. Nuevo turno para userId=${nextUserId}`,
     );
+  }
+
+  /**
+   * Verifica si un jugador todavía tiene barcos vivos en el tablero global.
+   * @param gameId ID de la partida.
+   * @param userId ID del jugador.
+   * @returns true si tiene al menos un barco no hundido, false si ya no tiene barcos.
+   */
+  private async checkIfPlayerHasShipsAlive(
+    gameId: number,
+    userId: number,
+  ): Promise<boolean> {
+    const game = await this.prismaService.game.findUnique({
+      where: { id: gameId },
+    });
+    if (!game || !game.board) return false;
+
+    const board = JSON.parse(game.board as unknown as string) as {
+      ships: Array<{
+        ownerId: number;
+        isSunk: boolean;
+      }>;
+    };
+
+    return board.ships.some((ship) => ship.ownerId === userId && !ship.isSunk);
   }
 }

@@ -11,6 +11,14 @@ export class MatchmakingDto {
   mode?: 'individual' | 'teams';
 
   @IsOptional()
+  @IsEnum(['easy', 'medium', 'hard'])
+  @ApiPropertyOptional({
+    enum: ['easy', 'medium', 'hard'],
+    description: 'Dificultad deseada para el matchmaking',
+  })
+  difficulty?: 'easy' | 'medium' | 'hard';
+
+  @IsOptional()
   @IsInt()
   @Min(2)
   @Max(6)

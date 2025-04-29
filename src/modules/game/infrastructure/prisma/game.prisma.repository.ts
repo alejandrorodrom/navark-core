@@ -21,6 +21,7 @@ export class GamePrismaRepository implements GameRepository {
         isMatchmaking: false,
         maxPlayers: dto.maxPlayers,
         mode: dto.mode,
+        difficulty: dto.difficulty,
         teamCount: dto.mode === 'teams' ? dto.teamCount : null,
         createdById: userId,
         status: 'waiting',
@@ -31,7 +32,7 @@ export class GamePrismaRepository implements GameRepository {
       data: {
         userId,
         gameId: game.id,
-        board: {}, // se llenará luego
+        team: null,
       },
     });
 
@@ -45,13 +46,18 @@ export class GamePrismaRepository implements GameRepository {
         status: 'waiting',
         mode: dto.mode ?? undefined,
         maxPlayers: dto.maxPlayers ?? undefined,
+        difficulty: dto.difficulty ?? undefined,
       },
       include: { gamePlayers: true },
     });
 
     if (found && found.gamePlayers.length < found.maxPlayers) {
       await this.prisma.gamePlayer.create({
-        data: { userId, gameId: found.id, board: {} },
+        data: {
+          userId,
+          gameId: found.id,
+          team: null,
+        },
       });
       return found;
     }
@@ -62,6 +68,7 @@ export class GamePrismaRepository implements GameRepository {
         isMatchmaking: true,
         maxPlayers: dto.maxPlayers ?? 2,
         mode: dto.mode ?? 'individual',
+        difficulty: dto.difficulty ?? 'medium',
         teamCount: dto.mode === 'teams' ? 2 : null,
         createdById: userId,
         status: 'waiting',
@@ -69,7 +76,11 @@ export class GamePrismaRepository implements GameRepository {
     });
 
     await this.prisma.gamePlayer.create({
-      data: { userId, gameId: newGame.id, board: {} },
+      data: {
+        userId,
+        gameId: newGame.id,
+        team: null,
+      },
     });
 
     return newGame;

@@ -44,6 +44,13 @@ export class CreateGameDto {
   @ApiProperty({ enum: ['individual', 'teams'], description: 'Modo de juego' })
   mode: 'individual' | 'teams';
 
+  @IsEnum(['easy', 'medium', 'hard'])
+  @ApiProperty({
+    enum: ['easy', 'medium', 'hard'],
+    description: 'Nivel de dificultad de la partida',
+  })
+  difficulty: 'easy' | 'medium' | 'hard';
+
   @IsOptional()
   @IsInt()
   @Min(2)
