@@ -79,5 +79,6 @@ model Shot {
   shooterId Int
   type      String // "normal", "bomb", "missile", etc.
   target    Json // Ej: { x: 3, y: 5 } o lista de coordenadas
+  hit       Boolean  @default(false)
   createdAt DateTime @default(now())
 }
