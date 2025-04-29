@@ -1,46 +1,53 @@
 # Navark Core - Backend
 
-**Navark Core** es el backend oficial del juego multijugador de batalla naval **Navark**, desarrollado con **NestJS**, **Prisma ORM** y **PostgreSQL**, usando **Socket.IO** para comunicación en tiempo real.
-
-Gestiona partidas multijugador, control de turnos, disparos, reconexión de jugadores, modos individuales y por equipos, sistema nuclear, y ranking competitivo.
+**Navark Core** es el backend oficial del juego multijugador de batalla naval **Navark**, desarrollado con **NestJS**, **Prisma ORM**, **PostgreSQL**, **Socket.IO** y **Redis**, siguiendo **arquitectura hexagonal** para una separación estricta de responsabilidades.
 
 ---
 
 ## 🚀 Tecnologías principales
 
 - **NestJS** (WebSocket Gateway + HTTP API)
-- **Socket.IO** (Servidor WebSocket)
-- **Prisma ORM + PostgreSQL** (Persistencia de datos)
-- **Redis** (Sincronización de estados: turnos, nuclear, jugadores)
-- **Arquitectura Hexagonal** (Separación estricta entre dominio, aplicación e infraestructura)
+- **Socket.IO** (Servidor WebSocket en tiempo real)
+- **Prisma ORM + PostgreSQL** (Persistencia de datos estructurada)
+- **Redis** (Sincronización en memoria: turnos, jugadores, equipos, disparos nucleares)
+- **Arquitectura Hexagonal** (Separación estricta: `domain` / `application` / `infrastructure`)
 
 ---
 
 ## 🔥 Funcionalidades principales
 
-- Partidas multijugador de **2 a 6 jugadores**.
-- Modos de juego: **individual** y **por equipos** (hasta 3 equipos).
-- **Sistema de turnos** con temporizador (**30 segundos** por turno).
-- **Sistema nuclear**: desbloquea un disparo especial tras **6 aciertos consecutivos**.
-- **Expulsión automática** tras **3 turnos fallidos**.
-- **Sistema híbrido** de usuarios: invitados y registrados.
-- **Reconexión automática** de jugadores desconectados.
-- **Reasignación automática** del creador si abandona.
-- **Modo espectador** en partidas públicas.
-- **Sistema de eliminación por hundimiento de barcos**.
+- Partidas multijugador de **2 a 6 jugadores** simultáneos.
+- Modos de juego:
+    - **Individual** (todos contra todos).
+    - **Por equipos** (hasta **3 equipos** configurables).
+- **Sistema de turnos** con límite de **30 segundos** por acción.
+- **Sistema nuclear**:
+    - Desbloquea **bomba nuclear** tras **6 aciertos consecutivos** con disparos simples.
+- **Sistema de expulsión automática**:
+    - Jugadores inactivos por **3 turnos** consecutivos son expulsados.
+- **Reconexión automática**:
+    - Jugadores desconectados pueden reincorporarse si no han sido eliminados.
+- **Reasignación de creador**:
+    - Si el creador abandona, se asigna un nuevo líder automáticamente.
+- **Modo espectador**:
+    - Observadores pueden unirse a partidas en progreso.
+- **Sistema de eliminación**:
+    - Un jugador es eliminado si **todos sus barcos** son destruidos.
+- **Sistema híbrido de usuarios**:
+    - **Usuarios registrados** y **usuarios invitados** comparten partidas.
 
 ---
 
-## 📂 Estructura principal del código
+## 📂 Estructura principal del proyecto
 
 | Carpeta | Propósito |
 |:--------|:----------|
-| `/application` | Lógica de aplicación (servicios de negocio: crear partidas, disparar, matchmaking). |
-| `/domain` | Modelos y contratos de dominio (`Board`, `Ship`, `Difficulty`, `Mode`). |
-| `/infrastructure` | Adaptadores externos: Prisma (DB), Redis, HTTP Controllers, WebSocket Gateway. |
-| `/gateway/handlers` | Handlers WebSocket específicos (`player:join`, `player:fire`, `start:game`, etc.). |
-| `/gateway/utils` | Utilidades compartidas (`GameUtils`, `RedisUtils`). |
-| `/gateway/redis` | Servicios para estados de Redis (turnos, equipos, nuclear, abandonos). |
+| `/application` | Lógica de aplicación: servicios como creación de partidas, disparo, control de turnos. |
+| `/domain` | Modelos de dominio (`Board`, `Ship`, `Shot`, `Difficulty`, `Mode`, `ShotType`). |
+| `/infrastructure` | Adaptadores externos: Prisma ORM, Redis Services, WebSocket Gateway. |
+| `/gateway/handlers` | Handlers de eventos WebSocket (`player:join`, `player:fire`, `game:start`, etc.). |
+| `/gateway/redis` | Servicios de Redis para estados de juego (ready, turn, team, nuclear, player state). |
+| `/gateway/utils` | Utilidades de Redis y Socket.IO (`GameUtils`, `RedisUtils`). |
 
 ---
 
@@ -48,62 +55,62 @@ Gestiona partidas multijugador, control de turnos, disparos, reconexión de juga
 
 ### 🛡️ Autenticación (`/auth`)
 
-| Método | Ruta | Autenticación | Descripción |
+| Método | Ruta | Requiere JWT | Descripción |
 |:------|:-----|:--------------|:------------|
-| `POST` | `/auth/guest` | ❌ No requiere | Crear sesión como invitado. |
-| `POST` | `/auth/identify` | ❌ No requiere | Identificar o registrar usuario. |
-| `POST` | `/auth/refresh` | ❌ No requiere | Renovar access token. |
-| `GET` | `/auth/me` | ✅ Requiere JWT | Obtener perfil del usuario autenticado. |
-| `PATCH` | `/auth/me` | ✅ Requiere JWT | Actualizar perfil del usuario autenticado. |
+| `POST` | `/auth/guest` | ❌ | Crear sesión como invitado. |
+| `POST` | `/auth/identify` | ❌ | Identificar usuario registrado o nuevo. |
+| `POST` | `/auth/refresh` | ❌ | Renovar `access_token`. |
+| `GET` | `/auth/me` | ✅ | Obtener datos del usuario actual. |
+| `PATCH` | `/auth/me` | ✅ | Actualizar perfil del usuario actual. |
 
 ### 🎮 Gestión de partidas (`/games`)
 
-| Método | Ruta | Autenticación | Descripción |
+| Método | Ruta | Requiere JWT | Descripción |
 |:------|:-----|:--------------|:------------|
-| `POST` | `/games/manual` | ✅ Requiere JWT | Crear una partida manual. |
-| `POST` | `/games/matchmaking` | ✅ Requiere JWT | Buscar y unirse a partida rápida. |
+| `POST` | `/games/manual` | ✅ | Crear partida manual especificando opciones. |
+| `POST` | `/games/matchmaking` | ✅ | Buscar y unirse automáticamente a partida rápida disponible. |
 
 ---
 
 ## 📚 Eventos WebSocket
 
-### 🛅 Eventos Frontend ➜ Servidor
+### 🛥️ Eventos enviados por el **Frontend** ➔ **Servidor**
 
-| Evento | Envía | Descripción |
-|:-------|:------|:------------|
-| `player:join` | Jugador | Solicita unirse a una partida. |
-| `player:ready` | Jugador | Marca al jugador como listo. |
-| `player:chooseTeam` | Jugador | Selecciona equipo (modo teams). |
-| `player:leave` | Jugador | Sale de la partida. |
-| `creator:transfer` | Creador actual | Transferir rol de creador a otro jugador. |
-| `game:start` | Creador actual | Solicita iniciar la partida. |
-| `player:fire` | Jugador | Realiza un disparo (tipos: `simple`, `cross`, `multi`, `area`, `scan`, `nuclear`). |
+| Evento | Datos enviados | Descripción |
+|:-------|:----------------|:------------|
+| `player:join` | `gameId`, `role` | Solicitar unirse como jugador o espectador. |
+| `player:ready` | `gameId` | Marcar jugador como listo. |
+| `player:chooseTeam` | `gameId`, `team` | Seleccionar equipo en modo equipos. |
+| `player:leave` | `gameId` | Abandonar voluntariamente la partida. |
+| `creator:transfer` | `gameId`, `newCreatorUserId` | Transferir rol de creador a otro jugador. |
+| `game:start` | `gameId` | Solicitar inicio de partida si todos están listos. |
+| `player:fire` | `gameId`, `x`, `y`, `shotType` | Realizar disparo (simple, cross, multi, area, scan, nuclear). |
 
-### 🛅 Eventos Servidor ➜ Frontend
+### 🛥️ Eventos enviados por el **Servidor** ➔ **Frontend**
 
-| Evento | Recibe | Tipo de envío | Descripción |
-|:-------|:------|:--------------|:------------|
-| `player:joined` | Todos en sala | Broadcast | Nuevo jugador unido. |
-| `player:joined:ack` | Jugador | Individual | Confirmación de unión exitosa. |
-| `spectator:joined:ack` | Espectador que se une | Individual | Confirmación de unión como espectador. |
-| `join:denied` | Jugador que falló | Individual | Unión rechazada. |
-| `player:ready` | Todos en sala | Broadcast | Jugador marcado "listo". |
-| `player:ready:ack` | Jugador | Individual | Confirmación de "listo". |
-| `all:ready` | Todos en sala | Broadcast | Todos están listos. |
-| `player:teamAssigned` | Todos en sala | Broadcast | Jugador asignado a equipo. |
-| `player:left` | Todos en sala | Broadcast | Jugador abandonó. |
-| `creator:changed` | Todos en sala | Broadcast | Cambio de creador. |
-| `game:start:ack` | Jugador | Individual | Resultado de intento de inicio. |
-| `game:started` | Todos en sala | Broadcast | Partida iniciada. |
-| `turn:changed` | Todos en sala | Broadcast | Nuevo turno asignado. |
-| `player:fired` | Todos en sala | Broadcast | Resultado de disparo (`hit`, `sunk`). |
-| `player:fire:ack` | Jugador | Individual | Confirmación disparo realizado. |
-| `player:eliminated` | Todos en sala | Broadcast | Jugador eliminado (todos sus barcos hundidos). |
-| `nuclear:status` | Jugador | Individual | Estado progreso nuclear (desbloqueo). |
-| `turn:timeout` | Todos en sala | Broadcast | Jugador perdió turno por inactividad. |
-| `player:kicked` | Jugador | Individual | Jugador expulsado tras 3 turnos fallidos. |
-| `game:ended` | Todos en sala | Broadcast | Final de partida (ganador o equipo ganador). |
-| `game:abandoned` | Todos en sala | Broadcast | Partida eliminada (vacía). |
+| Evento | Datos enviados | Tipo de envío | Descripción |
+|:-------|:---------------|:--------------|:------------|
+| `player:joined` | `socketId` | Broadcast | Un nuevo jugador se unió. |
+| `player:joined:ack` | `{ success, room, createdById }` | Individual | Confirmación de unión exitosa. |
+| `spectator:joined:ack` | `{ success, room, createdById }` | Individual | Confirmación de unión como espectador. |
+| `join:denied` | `{ reason }` | Individual | Motivo de rechazo de unión. |
+| `player:ready` | `socketId` | Broadcast | Jugador marcado como listo. |
+| `player:ready:ack` | `{ success }` | Individual | Confirmación de jugador listo. |
+| `all:ready` | N/A | Broadcast | Todos los jugadores están listos. |
+| `player:teamAssigned` | `{ socketId, team }` | Broadcast | Jugador asignado a un equipo. |
+| `player:left` | `{ userId, nickname }` | Broadcast | Un jugador abandonó. |
+| `creator:changed` | `{ newCreatorUserId, newCreatorNickname }` | Broadcast | Se asignó nuevo creador. |
+| `game:start:ack` | `{ success, error? }` | Individual | Resultado de intento de inicio de partida. |
+| `game:started` | `{ gameId }` | Broadcast | Partida iniciada oficialmente. |
+| `turn:changed` | `{ userId }` | Broadcast | Nuevo jugador en turno. |
+| `player:fired` | `{ shooterUserId, x, y, hit, sunk }` | Broadcast | Resultado del disparo. |
+| `player:fire:ack` | `{ success, hit, sunk }` | Individual | Confirmación disparo enviado correctamente. |
+| `player:eliminated` | `{ userId }` | Broadcast | Jugador eliminado de la partida. |
+| `nuclear:status` | `{ progress, hasNuclear, used }` | Individual | Estado del progreso para desbloquear nuclear. |
+| `turn:timeout` | `{ userId }` | Broadcast | Jugador perdió turno por inactividad. |
+| `player:kicked` | `{ reason }` | Individual | Jugador expulsado por inactividad. |
+| `game:ended` | `{ mode, winnerUserId? | winningTeam? }` | Broadcast | Final de partida con ganador o equipo ganador. |
+| `game:abandoned` | N/A | Broadcast | Partida eliminada por quedar vacía. |
 
 ---
 
@@ -123,6 +130,7 @@ cp .env.example .env
 # Aplicar migraciones Prisma
 npx prisma migrate dev
 
-# Levantar el servidor
+# Levantar el servidor en modo desarrollo
 npm run start:dev
 ```
+
