@@ -42,7 +42,7 @@ model Game {
   mode       String // 'individual' | 'teams'
   difficulty String // 'easy', 'medium', 'hard'
   teamCount  Int? // solo si mode = 'teams'
-  board      Json
+  board      Json?
 
   createdById Int?
   createdBy   User? @relation("UserCreatedGames", fields: [createdById], references: [id])
