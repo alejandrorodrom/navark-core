@@ -26,7 +26,7 @@ export class StartGameHandler {
    * Procesa la solicitud de inicio de partida:
    * - Valída que todos los jugadores estén listos.
    * - Valída que todos los jugadores tengan equipo (si aplica).
-   * - Valída que cada equipo requerido tenga jugadores.
+   * - Valída que al menos un equipo tenga 2 o más jugadores.
    * - Genera un tablero único con barcos equitativos por jugador.
    * - Asigna teamId a los barcos si es en modo equipos.
    * - Actualiza el estado de la partida e inicia el primer turno.
@@ -94,17 +94,24 @@ export class StartGameHandler {
       return;
     }
 
-    const teamCounts: Record<number, number> = {};
-    for (const team of Object.values(teams)) {
-      teamCounts[team] = (teamCounts[team] || 0) + 1;
-    }
+    if (game.mode === 'teams') {
+      const playerTeamCounts: Record<number, number> = {};
 
-    for (let i = 1; i <= (game.teamCount ?? 0); i++) {
-      if (!teamCounts[i]) {
-        this.logger.warn(`Equipo ${i} vacío. gameId=${data.gameId}`);
+      for (const team of Object.values(teams)) {
+        playerTeamCounts[team] = (playerTeamCounts[team] || 0) + 1;
+      }
+
+      const hasTeamWithTwoOrMore = Object.values(playerTeamCounts).some(
+        (count) => count >= 2,
+      );
+
+      if (!hasTeamWithTwoOrMore) {
+        this.logger.warn(
+          `No hay equipos con al menos 2 jugadores. gameId=${data.gameId}`,
+        );
         client.emit('game:start:ack', {
           success: false,
-          error: `El equipo ${i} no tiene jugadores asignados`,
+          error: 'Debe existir al menos un equipo con 2 o más jugadores',
         });
         return;
       }
