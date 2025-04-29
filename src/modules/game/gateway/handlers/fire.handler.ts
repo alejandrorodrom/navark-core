@@ -47,6 +47,7 @@ export class FireHandler {
     const game = await this.prismaService.game.findUnique({
       where: { id: gameId },
     });
+
     if (!game || game.status !== 'in_progress') {
       client.emit('player:fire:ack', {
         success: false,
@@ -74,6 +75,26 @@ export class FireHandler {
 
     const board = JSON.parse(game.board as unknown as string) as Board;
 
+    if (!board.shots) {
+      board.shots = [];
+    }
+
+    const alreadyShot = board.shots?.some(
+      (shot) => shot.target.row === y && shot.target.col === x,
+    );
+
+    if (alreadyShot) {
+      client.emit('player:fire:ack', {
+        success: false,
+        error: 'Ya disparaste en esta posición.',
+      });
+      this.logger.warn(
+        `Disparo repetido bloqueado: socketId=${client.id}, gameId=${gameId}, coordenadas=(${x},${y})`,
+      );
+      return;
+    }
+
+    // Registrar disparo
     const result = await this.shotService.registerShot({
       gameId,
       shooterId: client.data.userId,
@@ -135,6 +156,7 @@ export class FireHandler {
       result.shot.hit,
       shotType,
     );
+
     await this.sendNuclearStatus(gameId, client);
 
     client.emit('player:fire:ack', {

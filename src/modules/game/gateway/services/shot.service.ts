@@ -74,17 +74,24 @@ export class ShotService {
       },
     });
 
+    const shot: Shot = {
+      id: createdShot.id,
+      gameId: createdShot.gameId,
+      shooterId: createdShot.shooterId,
+      type: createdShot.type as ShotType,
+      target: createdShot.target as { row: number; col: number },
+      hit: createdShot.hit,
+      sunkShipId: result.sunkShipId,
+      createdAt: createdShot.createdAt.toISOString(),
+    };
+
+    if (!board.shots) {
+      board.shots = [];
+    }
+    board.shots.push(shot);
+
     return {
-      shot: {
-        id: createdShot.id,
-        gameId: createdShot.gameId,
-        shooterId: createdShot.shooterId,
-        type: createdShot.type as ShotType,
-        target: createdShot.target as { row: number; col: number },
-        hit: createdShot.hit,
-        sunkShipId: result.sunkShipId,
-        createdAt: createdShot.createdAt.toISOString(), // ✅
-      },
+      shot,
       updatedBoard: board,
     };
   }

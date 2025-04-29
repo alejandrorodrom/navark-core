@@ -1,3 +1,5 @@
+import { Shot } from './shot.model';
+
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export type Mode = 'individual' | 'teams';
@@ -13,6 +15,7 @@ export interface Ship {
 export interface Board {
   size: number;
   ships: Ship[];
+  shots: Shot[];
 }
 
 export interface Position {
