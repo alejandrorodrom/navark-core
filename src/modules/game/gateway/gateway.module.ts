@@ -15,6 +15,7 @@ import { TurnManagerService } from './services/turn-manager.service';
 import { TurnTimeoutService } from './services/turn-timeout.service';
 import { BoardGenerationService } from './services/board-generation.service';
 import { ShotService } from './services/shot.service';
+import { BoardHandler } from './handlers/board.handler';
 
 @Module({
   imports: [RedisStateModule, PrismaModule],
@@ -26,6 +27,7 @@ import { ShotService } from './services/shot.service';
     JoinHandler,
     LeaveHandler,
     StartGameHandler,
+    BoardHandler,
     GameUtils,
     RedisUtils,
     TurnManagerService,

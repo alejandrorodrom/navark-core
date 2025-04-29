@@ -4,6 +4,7 @@ import { GameRepository } from '../../domain/repository/game.repository';
 import { CreateGameDto } from '../../domain/dto/create-game.dto';
 import { Game } from '../../../../prisma/prisma.types';
 import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
+import { GameStatus } from '../../../../prisma/prisma.enum';
 
 @Injectable()
 export class GamePrismaRepository implements GameRepository {
@@ -24,7 +25,7 @@ export class GamePrismaRepository implements GameRepository {
         difficulty: dto.difficulty,
         teamCount: dto.mode === 'teams' ? dto.teamCount : null,
         createdById: userId,
-        status: 'waiting',
+        status: GameStatus.waiting,
       },
     });
 
@@ -43,7 +44,7 @@ export class GamePrismaRepository implements GameRepository {
     const found = await this.prisma.game.findFirst({
       where: {
         isMatchmaking: true,
-        status: 'waiting',
+        status: GameStatus.waiting,
         mode: dto.mode ?? undefined,
         maxPlayers: dto.maxPlayers ?? undefined,
         difficulty: dto.difficulty ?? undefined,
@@ -71,7 +72,7 @@ export class GamePrismaRepository implements GameRepository {
         difficulty: dto.difficulty ?? 'medium',
         teamCount: dto.mode === 'teams' ? 2 : null,
         createdById: userId,
-        status: 'waiting',
+        status: GameStatus.waiting,
       },
     });
 

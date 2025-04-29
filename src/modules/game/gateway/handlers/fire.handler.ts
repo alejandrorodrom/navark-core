@@ -10,6 +10,8 @@ import { TurnManagerService } from '../services/turn-manager.service';
 import { ShotService } from '../services/shot.service';
 import { Board } from '../../domain/models/board.model';
 import { ShotType } from '../../domain/models/shot.model';
+import { BoardHandler } from './board.handler';
+import { GameStatus } from '../../../../prisma/prisma.enum';
 
 /**
  * FireHandler gestiona la acción de disparo durante una partida:
@@ -31,6 +33,7 @@ export class FireHandler {
     private readonly turnManagerService: TurnManagerService,
     private readonly webSocketServerService: WebSocketServerService,
     private readonly shotService: ShotService,
+    private readonly boardHandler: BoardHandler,
   ) {}
 
   async onPlayerFire(
@@ -48,7 +51,7 @@ export class FireHandler {
       where: { id: gameId },
     });
 
-    if (!game || game.status !== 'in_progress') {
+    if (!game || game.status !== GameStatus.in_progress) {
       client.emit('player:fire:ack', {
         success: false,
         error: 'Partida no disponible para disparar.',
@@ -164,6 +167,8 @@ export class FireHandler {
       hit: result.shot.hit,
       sunk: result.shot.sunkShipId !== undefined,
     });
+
+    await this.boardHandler.sendBoardUpdate(client, gameId);
 
     await this.turnTimeoutService.clearTurnTimeout(gameId);
     await this.turnManagerService.passTurn(gameId, client.data.userId);

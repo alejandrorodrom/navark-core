@@ -7,6 +7,8 @@ import { ReadyStateRedis } from '../redis/ready-state.redis';
 import { TeamStateRedis } from '../redis/team-state.redis';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { BoardGenerationService } from '../services/board-generation.service';
+import { BoardHandler } from './board.handler';
+import { GameStatus } from '../../../../prisma/prisma.enum';
 
 @Injectable()
 export class StartGameHandler {
@@ -20,6 +22,7 @@ export class StartGameHandler {
     private readonly gameUtils: GameUtils,
     private readonly webSocketServerService: WebSocketServerService,
     private readonly boardGenerationService: BoardGenerationService,
+    private readonly boardHandler: BoardHandler,
   ) {}
 
   /**
@@ -142,7 +145,7 @@ export class StartGameHandler {
     await this.prismaService.game.update({
       where: { id: data.gameId },
       data: {
-        status: 'in_progress',
+        status: GameStatus.in_progress,
         board: JSON.stringify({ size, ships }),
       },
     });
@@ -157,5 +160,17 @@ export class StartGameHandler {
     client.emit('game:start:ack', { success: true });
 
     this.logger.log(`Partida iniciada exitosamente. gameId=${data.gameId}`);
+
+    for (const socketId of allSocketIds) {
+      const socket = this.webSocketServerService
+        .getServer()
+        .sockets.sockets.get(socketId);
+      if (socket) {
+        await this.boardHandler.sendBoardUpdate(
+          socket as SocketWithUser,
+          game.id,
+        );
+      }
+    }
   }
 }

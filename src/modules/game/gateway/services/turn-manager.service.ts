@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisUtils } from '../utils/redis.utils';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { WebSocketServerService } from './web-socket-server.service';
+import { GameStatus } from '../../../../prisma/prisma.enum';
 
 /**
  * TurnManagerService gestiona el avance de turnos y finalización de partidas.
@@ -67,7 +68,7 @@ export class TurnManagerService {
       });
       await this.prismaService.game.update({
         where: { id: gameId },
-        data: { status: 'finished' },
+        data: { status: GameStatus.finished },
       });
 
       await this.redisUtils.clearGameRedisState(gameId);
@@ -96,7 +97,7 @@ export class TurnManagerService {
         });
         await this.prismaService.game.update({
           where: { id: gameId },
-          data: { status: 'finished' },
+          data: { status: GameStatus.finished },
         });
 
         await this.redisUtils.clearGameRedisState(gameId);

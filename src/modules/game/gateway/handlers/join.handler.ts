@@ -8,6 +8,8 @@ import { GameUtils } from '../utils/game.utils';
 import { PlayerStateRedis } from '../redis/player-state.redis';
 import { PlayerJoinDto } from '../contracts/player-join.dto';
 import { RedisUtils } from '../utils/redis.utils';
+import { BoardHandler } from './board.handler';
+import { GameStatus } from '../../../../prisma/prisma.enum';
 
 /**
  * JoinHandler gestiona la lógica relacionada con:
@@ -27,11 +29,12 @@ export class JoinHandler {
     private readonly redisUtils: RedisUtils,
     private readonly gameUtils: GameUtils,
     private readonly webSocketServerService: WebSocketServerService,
+    private readonly boardHandler: BoardHandler,
   ) {}
 
   /**
    * Maneja la unión de un cliente como jugador o espectador.
-   * Valida duplicación, estado de la partida y restricciones por abandono.
+   * Valída duplicación, estado de la partida y restricciones por abandono.
    * @param client Socket conectado.
    * @param data Datos de unión (gameId + rol).
    */
@@ -57,7 +60,7 @@ export class JoinHandler {
     }
 
     if (data.role === 'player') {
-      if (game.status !== 'waiting') {
+      if (game.status !== GameStatus.waiting) {
         client.emit('join:denied', { reason: 'Partida ya iniciada' });
         this.logger.warn(`Intento de unirse como jugador en partida iniciada.`);
         return;
@@ -110,6 +113,10 @@ export class JoinHandler {
       this.logger.log(
         `Jugador socketId=${client.id} unido exitosamente a room=${room}`,
       );
+
+      if ((game.status as GameStatus) === GameStatus.in_progress) {
+        await this.boardHandler.sendBoardUpdate(client, data.gameId);
+      }
     }
 
     if (data.role === 'spectator') {
@@ -137,15 +144,13 @@ export class JoinHandler {
       this.logger.log(
         `Espectador socketId=${client.id} unido como espectador a room=${room}`,
       );
+
+      if (game.status === GameStatus.in_progress) {
+        await this.boardHandler.sendBoardUpdate(client, data.gameId);
+      }
     }
   }
 
-  /**
-   * Marca al jugador como listo dentro de la partida.
-   * Emite un evento de confirmación y actualiza estado en Redis.
-   * @param client Cliente que se marca como listo.
-   * @param data Contiene el ID de la partida (`gameId`).
-   */
   async onPlayerReady(
     client: SocketWithUser,
     data: { gameId: number },
@@ -180,12 +185,6 @@ export class JoinHandler {
     client.emit('player:ready:ack', { success: true });
   }
 
-  /**
-   * Permite a un jugador seleccionar su equipo en partidas por equipos.
-   * Valída los límites de equipos configurados en la partida.
-   * @param client Cliente que selecciona un equipo.
-   * @param data Contiene `gameId` y `team` seleccionado.
-   */
   async onPlayerChooseTeam(
     client: SocketWithUser,
     data: { gameId: number; team: number },
