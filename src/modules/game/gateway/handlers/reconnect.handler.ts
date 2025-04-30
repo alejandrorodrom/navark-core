@@ -38,12 +38,45 @@ export class ReconnectHandler {
     const { gameId } = previousMapping;
     const room = `game:${gameId}`;
 
-    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
+    const game = await this.prisma.game.findUnique({
+      where: { id: gameId },
+      include: { gamePlayers: true },
+    });
+
     if (!game) {
       this.logger.warn(
         `Partida inexistente. No se puede reconectar. gameId=${gameId}`,
       );
       client.emit('reconnect:failed', { reason: 'Partida ya no existe' });
+      return;
+    }
+
+    const [isPlayer, isSpectator] = [
+      game.gamePlayers.some((p) => p.userId === client.data.userId),
+      await this.prisma.spectator.findFirst({
+        where: { gameId, userId: client.data.userId },
+      }),
+    ];
+
+    if (!isPlayer) {
+      this.logger.warn(
+        `Reconexión rechazada: userId=${client.data.userId} no es jugador en gameId=${gameId}`,
+      );
+      client.emit('reconnect:failed', {
+        reason: isSpectator
+          ? 'Eres espectador, no puedes reconectarte como jugador'
+          : 'No estás registrado en esta partida',
+      });
+      return;
+    }
+
+    if (!isPlayer) {
+      this.logger.warn(
+        `Intento de reconexión inválida: userId=${client.data.userId} no pertenece a gameId=${gameId}`,
+      );
+      client.emit('reconnect:failed', {
+        reason: 'No estás registrado como jugador de esta partida',
+      });
       return;
     }
 
