@@ -60,7 +60,7 @@ export class TurnManagerService {
 
     // Finalizar partida individual
     if (alivePlayers.length === 1 && game.mode === 'individual') {
-      const winner = alivePlayers[0];
+      const [winner] = alivePlayers;
 
       await this.prismaService.gamePlayer.update({
         where: { id: winner.id },
