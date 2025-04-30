@@ -60,6 +60,33 @@ export class JoinHandler {
     }
 
     if (data.role === 'player') {
+      const isAlreadyJoined = game.gamePlayers.some(
+        (p) => p.userId === client.data.userId,
+      );
+
+      if (isAlreadyJoined) {
+        this.logger.log(
+          `Jugador ya estaba registrado. Tratando como reconexión: userId=${client.data.userId}`,
+        );
+
+        await client.join(room);
+        await this.redisUtils.saveSocketMapping(
+          client.id,
+          client.data.userId,
+          data.gameId,
+        );
+
+        client.emit('player:joined:ack', {
+          success: true,
+          room,
+          createdById: game.createdById,
+          reconnected: true,
+        });
+
+        await this.boardHandler.sendBoardUpdate(client, data.gameId);
+        return;
+      }
+
       if (game.status !== GameStatus.waiting) {
         client.emit('join:denied', { reason: 'Partida ya iniciada' });
         this.logger.warn(`Intento de unirse como jugador en partida iniciada.`);
@@ -72,22 +99,10 @@ export class JoinHandler {
         return;
       }
 
-      const isAlreadyJoined = game.gamePlayers.some(
-        (p) => p.userId === client.data.userId,
-      );
-      if (isAlreadyJoined) {
-        client.emit('join:denied', { reason: 'Ya estás en la partida' });
-        this.logger.warn(
-          `Jugador duplicado: userId=${client.data.userId} ya está en gameId=${data.gameId}`,
-        );
-        return;
-      }
-
       const isAbandoned = await this.playerStateRedis.isAbandoned(
         data.gameId,
         client.data.userId,
       );
-
       if (isAbandoned) {
         client.emit('join:denied', { reason: 'Fuiste expulsado por abandono' });
         this.logger.warn(
@@ -123,13 +138,27 @@ export class JoinHandler {
       const isAlreadySpectating = game.spectators.some(
         (s) => s.userId === client.data.userId,
       );
+
       if (isAlreadySpectating) {
-        client.emit('join:denied', {
-          reason: 'Ya estás observando esta partida',
-        });
-        this.logger.warn(
-          `Usuario duplicado: userId=${client.data.userId} ya es espectador de gameId=${data.gameId}`,
+        this.logger.log(
+          `Espectador ya registrado. Reingresando sin error: userId=${client.data.userId}`,
         );
+
+        await client.join(room);
+        await this.redisUtils.saveSocketMapping(
+          client.id,
+          client.data.userId,
+          data.gameId,
+        );
+
+        client.emit('spectator:joined:ack', {
+          success: true,
+          room,
+          createdById: game.createdById,
+          reconnected: true,
+        });
+
+        await this.boardHandler.sendBoardUpdate(client, data.gameId);
         return;
       }
 

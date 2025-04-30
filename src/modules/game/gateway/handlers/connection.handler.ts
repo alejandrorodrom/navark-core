@@ -38,7 +38,6 @@ export class ConnectionHandler {
   async handleDisconnect(client: SocketWithUser): Promise<void> {
     this.logger.log(`Cliente desconectado: socketId=${client.id}`);
 
-    // 🔥 NUEVO: Obtener gameId y userId directamente desde Redis
     const mapping = await this.redisUtils.getSocketMapping(client.id);
 
     if (!mapping) {

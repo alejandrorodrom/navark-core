@@ -16,12 +16,14 @@ import { TurnTimeoutService } from './services/turn-timeout.service';
 import { BoardGenerationService } from './services/board-generation.service';
 import { ShotService } from './services/shot.service';
 import { BoardHandler } from './handlers/board.handler';
+import { ReconnectHandler } from './handlers/reconnect.handler';
 
 @Module({
   imports: [RedisStateModule, PrismaModule],
   providers: [
     GameGateway,
     ConnectionHandler,
+    ReconnectHandler,
     CreatorHandler,
     FireHandler,
     JoinHandler,

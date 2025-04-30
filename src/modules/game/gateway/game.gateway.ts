@@ -21,6 +21,7 @@ import { CreatorHandler } from './handlers/creator.handler';
 import { StartGameHandler } from './handlers/start-game.handler';
 import { PlayerJoinDto } from './contracts/player-join.dto';
 import { WebSocketServerService } from './services/web-socket-server.service';
+import { ReconnectHandler } from './handlers/reconnect.handler';
 
 /**
  * GameGateway maneja la comunicación WebSocket de eventos en tiempo real
@@ -39,6 +40,7 @@ export class GameGateway
 
   constructor(
     private readonly connectionHandler: ConnectionHandler,
+    private readonly reconnectHandler: ReconnectHandler,
     private readonly joinHandler: JoinHandler,
     private readonly fireHandler: FireHandler,
     private readonly leaveHandler: LeaveHandler,
@@ -55,7 +57,11 @@ export class GameGateway
    * Evento de conexión de un nuevo cliente WebSocket.
    * @param client Cliente conectado.
    */
-  handleConnection(client: SocketWithUser) {
+  async handleConnection(client: SocketWithUser) {
+    if (client.data?.userId) {
+      await this.reconnectHandler.handleReconnect(client);
+    }
+
     return this.connectionHandler.handleConnection(client);
   }
 

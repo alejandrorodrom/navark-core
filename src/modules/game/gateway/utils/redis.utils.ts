@@ -69,4 +69,12 @@ export class RedisUtils {
   async deleteSocketMapping(socketId: string): Promise<void> {
     await this.redis.del(`socket:${socketId}`);
   }
+
+  async getLastGameMappingByUserId(
+    userId: number,
+  ): Promise<{ gameId: number } | null> {
+    const key = `lastGameByUser:${userId}`;
+    const gameId = await this.redis.get(key);
+    return gameId ? { gameId: Number(gameId) } : null;
+  }
 }
