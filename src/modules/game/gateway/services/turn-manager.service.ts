@@ -4,10 +4,9 @@ import { RedisUtils } from '../utils/redis.utils';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { WebSocketServerService } from './web-socket-server.service';
 import { GameStatus } from '../../../../prisma/prisma.enum';
+import { parseBoard } from '../utils/board.utils';
+import { GameStatsService } from './game-stats.service';
 
-/**
- * TurnManagerService gestiona el avance de turnos y finalización de partidas.
- */
 @Injectable()
 export class TurnManagerService {
   private readonly logger = new Logger(TurnManagerService.name);
@@ -17,6 +16,7 @@ export class TurnManagerService {
     private readonly redisUtils: RedisUtils,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly webSocketServerService: WebSocketServerService,
+    private readonly gameStatsService: GameStatsService,
   ) {}
 
   /**
@@ -73,9 +73,12 @@ export class TurnManagerService {
 
       await this.redisUtils.clearGameRedisState(gameId);
 
+      const stats = await this.gameStatsService.generateStats(gameId);
+
       server.to(`game:${gameId}`).emit('game:ended', {
         mode: 'individual',
         winnerUserId: winner.userId,
+        stats,
       });
 
       this.logger.log(
@@ -102,9 +105,12 @@ export class TurnManagerService {
 
         await this.redisUtils.clearGameRedisState(gameId);
 
+        const stats = await this.gameStatsService.generateStats(gameId);
+
         server.to(`game:${gameId}`).emit('game:ended', {
           mode: 'teams',
           winningTeam,
+          stats,
         });
 
         this.logger.log(
@@ -114,7 +120,6 @@ export class TurnManagerService {
       }
     }
 
-    // Avanzar turno
     const playerOrder = alivePlayers.map((p) => p.userId);
     const currentIndex = playerOrder.indexOf(currentUserId);
     const nextIndex = (currentIndex + 1) % playerOrder.length;
@@ -146,12 +151,7 @@ export class TurnManagerService {
     });
     if (!game || !game.board) return false;
 
-    const board = JSON.parse(game.board as unknown as string) as {
-      ships: Array<{
-        ownerId: number;
-        isSunk: boolean;
-      }>;
-    };
+    const board = parseBoard(game.board);
 
     return board.ships.some((ship) => ship.ownerId === userId && !ship.isSunk);
   }

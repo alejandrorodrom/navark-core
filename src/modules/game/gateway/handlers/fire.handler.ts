@@ -12,6 +12,7 @@ import { Board } from '../../domain/models/board.model';
 import { ShotType } from '../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../prisma/prisma.enum';
+import { parseBoard } from '../utils/board.utils';
 
 /**
  * FireHandler gestiona la acción de disparo durante una partida:
@@ -76,7 +77,7 @@ export class FireHandler {
       return;
     }
 
-    const board = JSON.parse(game.board as unknown as string) as Board;
+    const board = parseBoard(game.board);
 
     if (!board.shots) {
       board.shots = [];
