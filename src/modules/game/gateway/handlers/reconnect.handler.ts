@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisUtils } from '../utils/redis.utils';
 import { WebSocketServerService } from '../services/web-socket-server.service';
 import { SocketWithUser } from '../contracts/socket.types';
 import { BoardHandler } from './board.handler';
+import { GameRepository } from '../../domain/repository/game.repository';
+import { SpectatorRepository } from '../../domain/repository/spectator.repository';
 
 @Injectable()
 export class ReconnectHandler {
@@ -11,7 +12,8 @@ export class ReconnectHandler {
 
   constructor(
     private readonly redisUtils: RedisUtils,
-    private readonly prisma: PrismaService,
+    private readonly gameRepository: GameRepository,
+    private readonly spectatorRepository: SpectatorRepository,
     private readonly webSocketServerService: WebSocketServerService,
     private readonly boardHandler: BoardHandler,
   ) {}
@@ -38,10 +40,7 @@ export class ReconnectHandler {
     const { gameId } = previousMapping;
     const room = `game:${gameId}`;
 
-    const game = await this.prisma.game.findUnique({
-      where: { id: gameId },
-      include: { gamePlayers: true },
-    });
+    const game = await this.gameRepository.findByIdWithPlayers(gameId);
 
     if (!game) {
       this.logger.warn(
@@ -53,9 +52,7 @@ export class ReconnectHandler {
 
     const [isPlayer, isSpectator] = [
       game.gamePlayers.some((p) => p.userId === client.data.userId),
-      await this.prisma.spectator.findFirst({
-        where: { gameId, userId: client.data.userId },
-      }),
+      await this.spectatorRepository.findFirst(gameId, client.data.userId),
     ];
 
     if (!isPlayer) {

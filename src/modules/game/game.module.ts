@@ -8,6 +8,12 @@ import { GamePrismaRepository } from './infrastructure/prisma/game.prisma.reposi
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisModule } from '../../redis/redis.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { PlayerRepository } from './domain/repository/player.repository';
+import { PlayerPrismaRepository } from './infrastructure/prisma/player.prisma.repository';
+import { SpectatorRepository } from './domain/repository/spectator.repository';
+import { SpectatorPrismaRepository } from './infrastructure/prisma/spectator.prisma.repository';
+import { ShotRepository } from './domain/repository/shot.repository';
+import { ShotPrismaRepository } from './infrastructure/prisma/shot.prisma.repository';
 
 @Module({
   controllers: [GameController],
@@ -17,6 +23,9 @@ import { GatewayModule } from './gateway/gateway.module';
     MatchmakingService,
     GameFacade,
     { provide: GameRepository, useClass: GamePrismaRepository },
+    { provide: PlayerRepository, useClass: PlayerPrismaRepository },
+    { provide: ShotRepository, useClass: ShotPrismaRepository },
+    { provide: SpectatorRepository, useClass: SpectatorPrismaRepository },
   ],
   imports: [RedisModule, GatewayModule],
 })

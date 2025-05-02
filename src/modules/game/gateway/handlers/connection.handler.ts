@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GameUtils } from '../utils/game.utils';
 import { RedisUtils } from '../utils/redis.utils';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { SocketWithUser } from '../contracts/socket.types';
 import { WebSocketServerService } from '../services/web-socket-server.service';
+import { GameRepository } from '../../domain/repository/game.repository';
 
 /**
  * ConnectionHandler gestiona eventos de conexión y desconexión
@@ -16,7 +16,7 @@ export class ConnectionHandler {
   constructor(
     private readonly gameUtils: GameUtils,
     private readonly redisUtils: RedisUtils,
-    private readonly prismaService: PrismaService,
+    private readonly gameRepository: GameRepository,
     private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
@@ -49,9 +49,7 @@ export class ConnectionHandler {
 
     await this.redisUtils.deleteSocketMapping(client.id);
 
-    const game = await this.prismaService.game.findUnique({
-      where: { id: gameId },
-    });
+    const game = await this.gameRepository.findById(gameId);
     if (!game) {
       this.logger.warn(
         `Partida inexistente en base de datos: gameId=${gameId}`,
@@ -83,10 +81,7 @@ export class ConnectionHandler {
       await this.gameUtils.kickPlayersFromRoom(gameId, 'abandoned');
 
       await Promise.all([
-        this.prismaService.shot.deleteMany({ where: { gameId } }),
-        this.prismaService.spectator.deleteMany({ where: { gameId } }),
-        this.prismaService.gamePlayer.deleteMany({ where: { gameId } }),
-        this.prismaService.game.delete({ where: { id: gameId } }),
+        this.gameRepository.removeAbandonedGames(gameId),
         this.redisUtils.clearGameRedisState(gameId),
       ]);
 
@@ -105,10 +100,10 @@ export class ConnectionHandler {
       ) as SocketWithUser;
 
       if (fallbackSocket?.data?.userId) {
-        await this.prismaService.game.update({
-          where: { id: gameId },
-          data: { createdById: fallbackSocket.data.userId },
-        });
+        await this.gameRepository.updateGameCreator(
+          gameId,
+          fallbackSocket.data.userId,
+        );
 
         server.to(room).emit('creator:changed', {
           newCreatorUserId: fallbackSocket.data.userId,

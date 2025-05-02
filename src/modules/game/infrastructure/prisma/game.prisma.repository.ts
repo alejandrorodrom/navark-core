@@ -2,9 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { GameRepository } from '../../domain/repository/game.repository';
 import { CreateGameDto } from '../../domain/dto/create-game.dto';
-import { Game } from '../../../../prisma/prisma.types';
+import {
+  Game,
+  GamePlayer,
+  Spectator,
+  User,
+} from '../../../../prisma/prisma.types';
 import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
 import { GameStatus } from '../../../../prisma/prisma.enum';
+import { Board } from '../../domain/models/board.model';
 
 @Injectable()
 export class GamePrismaRepository implements GameRepository {
@@ -85,5 +91,83 @@ export class GamePrismaRepository implements GameRepository {
     });
 
     return newGame;
+  }
+
+  async findByIdWithPlayers(
+    id: number,
+  ): Promise<(Game & { gamePlayers: GamePlayer[] }) | null> {
+    return this.prisma.game.findUnique({
+      where: { id },
+      include: { gamePlayers: true },
+    });
+  }
+
+  async findByIdWithPlayersAndUsers(
+    id: number,
+  ): Promise<(Game & { gamePlayers: (GamePlayer & { user: User })[] }) | null> {
+    return this.prisma.game.findUnique({
+      where: { id },
+      include: {
+        gamePlayers: {
+          include: { user: true },
+        },
+      },
+    });
+  }
+
+  async findByIdWithPlayersAndSpectator(
+    id: number,
+  ): Promise<
+    (Game & { gamePlayers: GamePlayer[]; spectators: Spectator[] }) | null
+  > {
+    return this.prisma.game.findUnique({
+      where: { id: id },
+      include: { gamePlayers: true, spectators: true },
+    });
+  }
+
+  async findById(id: number): Promise<Game | null> {
+    return this.prisma.game.findUnique({
+      where: { id },
+    });
+  }
+
+  async updateGameCreator(gameId: number, userId: number): Promise<Game> {
+    return this.prisma.game.update({
+      where: { id: gameId },
+      data: { createdById: userId },
+    });
+  }
+
+  async updateGameStartBoard(gameId: number, board: Board): Promise<Game> {
+    return this.prisma.game.update({
+      where: { id: gameId },
+      data: { status: GameStatus.in_progress, board: JSON.stringify(board) },
+    });
+  }
+
+  async updateGameBoard(gameId: number, board: Board): Promise<Game> {
+    return this.prisma.game.update({
+      where: { id: gameId },
+      data: { board: JSON.stringify(board) },
+    });
+  }
+
+  async markGameAsFinished(gameId: number): Promise<Game> {
+    return this.prisma.game.update({
+      where: { id: gameId },
+      data: { status: GameStatus.finished },
+    });
+  }
+
+  async removeAbandonedGames(id: number): Promise<Game> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.shot.deleteMany({ where: { gameId: id } });
+      await tx.spectator.deleteMany({ where: { gameId: id } });
+      await tx.gamePlayer.deleteMany({ where: { gameId: id } });
+      return tx.game.delete({
+        where: { id },
+      });
+    });
   }
 }

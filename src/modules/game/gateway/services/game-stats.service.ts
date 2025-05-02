@@ -1,18 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { parseBoard } from '../utils/board.utils';
 import { Shot, ShotType } from '../../domain/models/shot.model';
 import { PlayerStats } from '../../domain/models/stats.model';
+import { GameRepository } from '../../domain/repository/game.repository';
 
 @Injectable()
 export class GameStatsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly gameRepository: GameRepository) {}
 
   async generateStats(gameId: number) {
-    const game = await this.prisma.game.findUnique({
-      where: { id: gameId },
-      include: { gamePlayers: true },
-    });
+    const game = await this.gameRepository.findByIdWithPlayers(gameId);
+
     if (!game || !game.board) return [];
 
     const board = parseBoard(game.board);

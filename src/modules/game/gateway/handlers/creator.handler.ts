@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { GameUtils } from '../utils/game.utils';
 import { SocketWithUser } from '../contracts/socket.types';
 import { WebSocketServerService } from '../services/web-socket-server.service';
+import { GameRepository } from '../../domain/repository/game.repository';
 
 /**
  * CreatorHandler gestiona la transferencia manual del rol de creador
@@ -13,8 +13,8 @@ export class CreatorHandler {
   private readonly logger = new Logger(CreatorHandler.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly gameUtils: GameUtils,
+    private readonly gameRepository: GameRepository,
     private readonly webSocketServerService: WebSocketServerService,
   ) {}
 
@@ -34,9 +34,7 @@ export class CreatorHandler {
       `Solicitud de transferencia manual en sala ${room} por socketId=${client.id}`,
     );
 
-    const game = await this.prismaService.game.findUnique({
-      where: { id: data.gameId },
-    });
+    const game = await this.gameRepository.findById(data.gameId);
 
     if (!game) {
       this.logger.warn(
@@ -85,10 +83,7 @@ export class CreatorHandler {
       targetSocketId,
     ) as SocketWithUser;
 
-    await this.prismaService.game.update({
-      where: { id: data.gameId },
-      data: { createdById: data.targetUserId },
-    });
+    await this.gameRepository.updateGameCreator(data.gameId, data.targetUserId);
 
     server.to(room).emit('creator:changed', {
       newCreatorUserId: data.targetUserId,

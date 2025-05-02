@@ -6,10 +6,10 @@ import { GameMapper } from '../../infrastructure/mappers/game.mapper';
 
 @Injectable()
 export class MatchmakingService {
-  constructor(private readonly gameRepo: GameRepository) {}
+  constructor(private readonly gameRepository: GameRepository) {}
 
   async execute(dto: MatchmakingDto, userId: number): Promise<GameResponseDto> {
-    const game = await this.gameRepo.findOrCreateMatch(dto, userId);
+    const game = await this.gameRepository.findOrCreateMatch(dto, userId);
     return GameMapper.toResponse(game);
   }
 }

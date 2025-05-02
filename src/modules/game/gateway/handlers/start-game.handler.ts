@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { GameUtils } from '../utils/game.utils';
 import { SocketWithUser } from '../contracts/socket.types';
 import { WebSocketServerService } from '../services/web-socket-server.service';
@@ -8,14 +7,14 @@ import { TeamStateRedis } from '../redis/team-state.redis';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { BoardGenerationService } from '../services/board-generation.service';
 import { BoardHandler } from './board.handler';
-import { GameStatus } from '../../../../prisma/prisma.enum';
+import { GameRepository } from '../../domain/repository/game.repository';
 
 @Injectable()
 export class StartGameHandler {
   private readonly logger = new Logger(StartGameHandler.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
+    private readonly gameRepository: GameRepository,
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly turnStateRedis: TurnStateRedis,
@@ -46,10 +45,7 @@ export class StartGameHandler {
       `Solicitud de inicio recibida. gameId=${data.gameId}, socketId=${client.id}`,
     );
 
-    const game = await this.prismaService.game.findUnique({
-      where: { id: data.gameId },
-      include: { gamePlayers: true },
-    });
+    const game = await this.gameRepository.findByIdWithPlayers(data.gameId);
 
     if (!game) {
       this.logger.warn(`Partida no encontrada. gameId=${data.gameId}`);
@@ -122,11 +118,14 @@ export class StartGameHandler {
 
     // Generar tablero único
     const playerIds = game.gamePlayers.map((player) => player.userId);
-    const { size, ships } = this.boardGenerationService.generateGlobalBoard(
+
+    const board = this.boardGenerationService.generateGlobalBoard(
       playerIds,
       game.difficulty as 'easy' | 'medium' | 'hard',
       game.mode as 'individual' | 'teams',
     );
+
+    const { ships } = board;
 
     // Asignar teamId a barcos si es modo equipos
     if (game.mode === 'teams') {
@@ -142,13 +141,7 @@ export class StartGameHandler {
       }
     }
 
-    await this.prismaService.game.update({
-      where: { id: data.gameId },
-      data: {
-        status: GameStatus.in_progress,
-        board: JSON.stringify({ size, ships }),
-      },
-    });
+    await this.gameRepository.updateGameStartBoard(data.gameId, board);
 
     await this.turnStateRedis.setCurrentTurn(game.id, game.createdById);
 

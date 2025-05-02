@@ -1,18 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { RedisUtils } from '../utils/redis.utils';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { WebSocketServerService } from './web-socket-server.service';
-import { GameStatus } from '../../../../prisma/prisma.enum';
 import { parseBoard } from '../utils/board.utils';
 import { GameStatsService } from './game-stats.service';
+import { GameRepository } from '../../domain/repository/game.repository';
+import { PlayerRepository } from '../../domain/repository/player.repository';
 
 @Injectable()
 export class TurnManagerService {
   private readonly logger = new Logger(TurnManagerService.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
+    private readonly gameRepository: GameRepository,
+    private readonly playerRepository: PlayerRepository,
     private readonly redisUtils: RedisUtils,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly webSocketServerService: WebSocketServerService,
@@ -27,10 +28,7 @@ export class TurnManagerService {
    * @param currentUserId ID del jugador que realizó la última acción.
    */
   async passTurn(gameId: number, currentUserId: number): Promise<void> {
-    const game = await this.prismaService.game.findUnique({
-      where: { id: gameId },
-      include: { gamePlayers: true },
-    });
+    const game = await this.gameRepository.findByIdWithPlayers(gameId);
     if (!game) return;
 
     const server = this.webSocketServerService.getServer();
@@ -45,10 +43,7 @@ export class TurnManagerService {
       if (!player.leftAt && hasShipsAlive) {
         alivePlayers.push(player);
       } else if (!player.leftAt && !hasShipsAlive) {
-        await this.prismaService.gamePlayer.update({
-          where: { id: player.id },
-          data: { leftAt: new Date() },
-        });
+        await this.playerRepository.markPlayerAsDefeatedById(player.id);
         server.to(`game:${gameId}`).emit('player:eliminated', {
           userId: player.userId,
         });
@@ -62,14 +57,8 @@ export class TurnManagerService {
     if (alivePlayers.length === 1 && game.mode === 'individual') {
       const [winner] = alivePlayers;
 
-      await this.prismaService.gamePlayer.update({
-        where: { id: winner.id },
-        data: { isWinner: true },
-      });
-      await this.prismaService.game.update({
-        where: { id: gameId },
-        data: { status: GameStatus.finished },
-      });
+      await this.playerRepository.markPlayerAsWinner(winner.id);
+      await this.gameRepository.markGameAsFinished(gameId);
 
       await this.redisUtils.clearGameRedisState(gameId);
 
@@ -94,14 +83,11 @@ export class TurnManagerService {
       if (teamsAlive.size === 1) {
         const winningTeam = [...teamsAlive][0];
 
-        await this.prismaService.gamePlayer.updateMany({
-          where: { gameId, team: winningTeam },
-          data: { isWinner: true },
-        });
-        await this.prismaService.game.update({
-          where: { id: gameId },
-          data: { status: GameStatus.finished },
-        });
+        await this.playerRepository.markTeamPlayersAsWinners(
+          gameId,
+          winningTeam,
+        );
+        await this.gameRepository.markGameAsFinished(gameId);
 
         await this.redisUtils.clearGameRedisState(gameId);
 
@@ -146,9 +132,7 @@ export class TurnManagerService {
     gameId: number,
     userId: number,
   ): Promise<boolean> {
-    const game = await this.prismaService.game.findUnique({
-      where: { id: gameId },
-    });
+    const game = await this.gameRepository.findById(gameId);
     if (!game || !game.board) return false;
 
     const board = parseBoard(game.board);

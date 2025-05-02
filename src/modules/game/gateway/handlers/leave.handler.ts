@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { GameUtils } from '../utils/game.utils';
 import { RedisUtils } from '../utils/redis.utils';
 import { SocketWithUser } from '../contracts/socket.types';
 import { WebSocketServerService } from '../services/web-socket-server.service';
+import { GameRepository } from '../../domain/repository/game.repository';
 
 /**
  * LeaveHandler maneja la lógica cuando un jugador abandona voluntariamente una partida,
@@ -14,7 +14,7 @@ export class LeaveHandler {
   private readonly logger = new Logger(LeaveHandler.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
+    private readonly gameRepository: GameRepository,
     private readonly gameUtils: GameUtils,
     private readonly redisUtils: RedisUtils,
     private readonly webSocketServerService: WebSocketServerService,
@@ -48,9 +48,8 @@ export class LeaveHandler {
     await client.leave(room);
 
     const gameId = data.gameId;
-    const game = await this.prismaService.game.findUnique({
-      where: { id: gameId },
-    });
+    const game = await this.gameRepository.findById(gameId);
+
     if (!game) {
       this.logger.warn(
         `No se encontró partida en base de datos al intentar abandonar: gameId=${gameId}`,
@@ -69,11 +68,7 @@ export class LeaveHandler {
       server.to(room).emit('game:abandoned');
       await this.gameUtils.kickPlayersFromRoom(gameId, 'abandoned');
 
-      await this.prismaService.shot.deleteMany({ where: { gameId } });
-      await this.prismaService.spectator.deleteMany({ where: { gameId } });
-      await this.prismaService.gamePlayer.deleteMany({ where: { gameId } });
-      await this.prismaService.game.delete({ where: { id: gameId } });
-
+      await this.gameRepository.removeAbandonedGames(gameId);
       await this.redisUtils.clearGameRedisState(gameId);
 
       this.logger.log(`Partida gameId=${gameId} eliminada exitosamente.`);
@@ -92,10 +87,10 @@ export class LeaveHandler {
       ) as SocketWithUser;
 
       if (fallbackSocket?.data?.userId) {
-        await this.prismaService.game.update({
-          where: { id: gameId },
-          data: { createdById: fallbackSocket.data.userId },
-        });
+        await this.gameRepository.updateGameCreator(
+          gameId,
+          fallbackSocket.data.userId,
+        );
 
         server.to(room).emit('creator:changed', {
           newCreatorUserId: fallbackSocket.data.userId,

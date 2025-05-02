@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Difficulty, Mode, Ship } from '../../domain/models/board.model';
+import { Board, Difficulty, Mode, Ship } from '../../domain/models/board.model';
 
 @Injectable()
 export class BoardGenerationService {
@@ -12,7 +12,7 @@ export class BoardGenerationService {
     playerIds: number[],
     difficulty: Difficulty,
     mode: Mode,
-  ): { size: number; ships: Ship[] } {
+  ): Board {
     const playersCount = playerIds.length;
     const { size, occupationPercentage } = this.getBoardSettings(
       difficulty,
@@ -59,7 +59,7 @@ export class BoardGenerationService {
       }
     }
 
-    return { size, ships };
+    return { size, ships, shots: [] };
   }
 
   private getBoardSettings(

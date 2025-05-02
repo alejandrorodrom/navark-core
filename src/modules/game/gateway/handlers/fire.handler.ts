@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { SocketWithUser } from '../contracts/socket.types';
 import { PlayerFireDto } from '../contracts/player-fire.dto';
 import { WebSocketServerService } from '../services/web-socket-server.service';
@@ -8,11 +7,12 @@ import { NuclearStateRedis } from '../redis/nuclear-state.redis';
 import { TurnTimeoutService } from '../services/turn-timeout.service';
 import { TurnManagerService } from '../services/turn-manager.service';
 import { ShotService } from '../services/shot.service';
-import { Board } from '../../domain/models/board.model';
 import { ShotType } from '../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../prisma/prisma.enum';
 import { parseBoard } from '../utils/board.utils';
+import { GameRepository } from '../../domain/repository/game.repository';
+import { PlayerRepository } from '../../domain/repository/player.repository';
 
 /**
  * FireHandler gestiona la acción de disparo durante una partida:
@@ -27,7 +27,8 @@ export class FireHandler {
   private readonly logger = new Logger(FireHandler.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
+    private readonly gameRepository: GameRepository,
+    private readonly playerRepository: PlayerRepository,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly nuclearStateRedis: NuclearStateRedis,
     private readonly turnTimeoutService: TurnTimeoutService,
@@ -48,9 +49,7 @@ export class FireHandler {
       `Disparo recibido: socketId=${client.id}, gameId=${gameId}, coordenadas=(${x},${y}), tipo=${shotType}`,
     );
 
-    const game = await this.prismaService.game.findUnique({
-      where: { id: gameId },
-    });
+    const game = await this.gameRepository.findById(gameId);
 
     if (!game || game.status !== GameStatus.in_progress) {
       client.emit('player:fire:ack', {
@@ -117,10 +116,7 @@ export class FireHandler {
       sunk: result.shot.sunkShipId !== undefined,
     });
 
-    await this.prismaService.game.update({
-      where: { id: gameId },
-      data: { board: JSON.stringify(result.updatedBoard) },
-    });
+    await this.gameRepository.updateGameBoard(gameId, result.updatedBoard);
 
     if (result.shot.hit) {
       const hitShip = result.updatedBoard.ships.find((ship) =>
@@ -138,10 +134,7 @@ export class FireHandler {
         );
 
         if (!playerStillAlive) {
-          await this.prismaService.gamePlayer.updateMany({
-            where: { gameId, userId: hitShipOwnerId },
-            data: { leftAt: new Date() },
-          });
+          await this.playerRepository.markPlayerAsDefeated(gameId, hitShipOwnerId);
 
           server.to(room).emit('player:eliminated', {
             userId: hitShipOwnerId,

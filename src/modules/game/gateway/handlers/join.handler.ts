@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { SocketWithUser } from '../contracts/socket.types';
 import { WebSocketServerService } from '../services/web-socket-server.service';
 import { ReadyStateRedis } from '../redis/ready-state.redis';
@@ -10,6 +9,7 @@ import { PlayerJoinDto } from '../contracts/player-join.dto';
 import { RedisUtils } from '../utils/redis.utils';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../prisma/prisma.enum';
+import { GameRepository } from '../../domain/repository/game.repository';
 
 /**
  * JoinHandler gestiona la lógica relacionada con:
@@ -22,7 +22,7 @@ export class JoinHandler {
   private readonly logger = new Logger(JoinHandler.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
+    private readonly gameRepository: GameRepository,
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
@@ -48,10 +48,9 @@ export class JoinHandler {
       `Solicitud de unión: socketId=${client.id}, role=${data.role}, gameId=${data.gameId}`,
     );
 
-    const game = await this.prismaService.game.findUnique({
-      where: { id: data.gameId },
-      include: { gamePlayers: true, spectators: true },
-    });
+    const game = await this.gameRepository.findByIdWithPlayersAndSpectator(
+      data.gameId,
+    );
 
     if (!game) {
       client.emit('join:denied', { reason: 'Partida no encontrada' });
@@ -219,9 +218,7 @@ export class JoinHandler {
     data: { gameId: number; team: number },
   ): Promise<void> {
     const room = `game:${data.gameId}`;
-    const game = await this.prismaService.game.findUnique({
-      where: { id: data.gameId },
-    });
+    const game = await this.gameRepository.findById(data.gameId);
 
     if (!game) {
       this.logger.warn(

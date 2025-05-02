@@ -6,7 +6,7 @@ import { GameMapper } from '../../infrastructure/mappers/game.mapper';
 
 @Injectable()
 export class CreateGameService {
-  constructor(private readonly gameRepo: GameRepository) {}
+  constructor(private readonly gameRepository: GameRepository) {}
 
   async execute(dto: CreateGameDto, userId: number): Promise<GameResponseDto> {
     if (
@@ -18,7 +18,7 @@ export class CreateGameService {
       );
     }
 
-    const game = await this.gameRepo.createGameWithPlayer(dto, userId);
+    const game = await this.gameRepository.createGameWithPlayer(dto, userId);
     return GameMapper.toResponse(game);
   }
 }

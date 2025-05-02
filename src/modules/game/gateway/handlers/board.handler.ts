@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { WebSocketServerService } from '../services/web-socket-server.service';
 import { TeamStateRedis } from '../redis/team-state.redis';
 import { SocketWithUser } from '../contracts/socket.types';
 import {
-  parseBoard,
-  getVisibleShips,
   getFormattedShots,
   getMyShipsState,
+  getVisibleShips,
+  parseBoard,
 } from '../utils/board.utils';
+import { GameRepository } from '../../domain/repository/game.repository';
 
 @Injectable()
 export class BoardHandler {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly gameRepository: GameRepository,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly webSocketServerService: WebSocketServerService,
   ) {}
@@ -27,14 +27,7 @@ export class BoardHandler {
    * @param gameId ID de la partida.
    */
   async sendBoardUpdate(client: SocketWithUser, gameId: number): Promise<void> {
-    const game = await this.prisma.game.findUnique({
-      where: { id: gameId },
-      include: {
-        gamePlayers: {
-          include: { user: true },
-        },
-      },
-    });
+    const game = await this.gameRepository.findByIdWithPlayersAndUsers(gameId);
 
     if (!game?.board) return;
 

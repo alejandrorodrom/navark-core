@@ -1,16 +1,16 @@
-export interface Shot {
+export interface Shot extends ShotResult {
   id: number;
   gameId: number;
   shooterId: number;
   type: ShotType;
-  target: {
-    row: number;
-    col: number;
-  };
-  hit: boolean;
-  sunkShipId?: number;
+  target: ShotTarget;
   createdAt: string;
 }
+
+export type ShotTarget = {
+  row: number;
+  col: number;
+};
 
 export type ShotType =
   | 'simple'
@@ -19,3 +19,8 @@ export type ShotType =
   | 'area'
   | 'scan'
   | 'nuclear';
+
+export type ShotResult = {
+  hit: boolean;
+  sunkShipId?: number;
+};
