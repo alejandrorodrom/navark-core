@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { WebSocketServerService } from '../services/web-socket-server.service';
-import { TeamStateRedis } from '../redis/team-state.redis';
-import { SocketWithUser } from '../contracts/socket.types';
+import { WebSocketServerService } from '../web-socket-server.service';
+import { TeamStateRedis } from '../../redis/team-state.redis';
+import { SocketWithUser } from '../../../domain/types/socket.types';
 import {
   getFormattedShots,
   getMyShipsState,
   getVisibleShips,
   parseBoard,
-} from '../utils/board.utils';
-import { GameRepository } from '../../domain/repository/game.repository';
+} from '../../../domain/utils/board.utils';
+import { GameRepository } from '../../../domain/repository/game.repository';
 
 @Injectable()
 export class BoardHandler {

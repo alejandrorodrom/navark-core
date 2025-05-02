@@ -24,3 +24,7 @@ export type ShotResult = {
   hit: boolean;
   sunkShipId?: number;
 };
+
+export interface VisualShot extends ShotTarget {
+  result: 'hit' | 'miss';
+}

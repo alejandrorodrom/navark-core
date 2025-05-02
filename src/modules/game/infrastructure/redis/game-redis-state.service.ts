@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TurnStateRedis } from '../redis/turn-state.redis';
-import { ReadyStateRedis } from '../redis/ready-state.redis';
-import { TeamStateRedis } from '../redis/team-state.redis';
-import { NuclearStateRedis } from '../redis/nuclear-state.redis';
+import { TurnStateRedis } from './turn-state.redis';
+import { ReadyStateRedis } from './ready-state.redis';
+import { TeamStateRedis } from './team-state.redis';
+import { NuclearStateRedis } from './nuclear-state.redis';
 import { RedisService } from '../../../../redis/redis.service';
 
 @Injectable()
-export class RedisUtils {
-  private readonly logger = new Logger(RedisUtils.name);
+export class GameRedisStateService {
+  private readonly logger = new Logger(GameRedisStateService.name);
 
   constructor(
     private readonly turnStateRedis: TurnStateRedis,

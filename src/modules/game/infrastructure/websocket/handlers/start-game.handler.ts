@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GameUtils } from '../utils/game.utils';
-import { SocketWithUser } from '../contracts/socket.types';
-import { WebSocketServerService } from '../services/web-socket-server.service';
-import { ReadyStateRedis } from '../redis/ready-state.redis';
-import { TeamStateRedis } from '../redis/team-state.redis';
-import { TurnStateRedis } from '../redis/turn-state.redis';
-import { BoardGenerationService } from '../services/board-generation.service';
+import { GameRoomManagerService } from '../game-room-manager.service';
+import { SocketWithUser } from '../../../domain/types/socket.types';
+import { WebSocketServerService } from '../web-socket-server.service';
+import { ReadyStateRedis } from '../../redis/ready-state.redis';
+import { TeamStateRedis } from '../../redis/team-state.redis';
+import { TurnStateRedis } from '../../redis/turn-state.redis';
+import { BoardGenerationService } from '../../../application/services/board-generation.service';
 import { BoardHandler } from './board.handler';
-import { GameRepository } from '../../domain/repository/game.repository';
+import { GameRepository } from '../../../domain/repository/game.repository';
 
 @Injectable()
 export class StartGameHandler {
@@ -18,7 +18,7 @@ export class StartGameHandler {
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly turnStateRedis: TurnStateRedis,
-    private readonly gameUtils: GameUtils,
+    private readonly gameUtils: GameRoomManagerService,
     private readonly webSocketServerService: WebSocketServerService,
     private readonly boardGenerationService: BoardGenerationService,
     private readonly boardHandler: BoardHandler,

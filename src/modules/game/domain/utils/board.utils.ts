@@ -1,18 +1,6 @@
-import { Board, Ship } from '../../domain/models/board.model';
-import { Shot } from '../../domain/models/shot.model';
-
-interface VisibleShip {
-  ownerId: number;
-  nickname: string;
-  color: string;
-  positions: { row: number; col: number }[];
-}
-
-interface VisualShot {
-  row: number;
-  col: number;
-  result: 'hit' | 'miss';
-}
+import { Board } from '../models/board.model';
+import { Shot, VisualShot } from '../models/shot.model';
+import { Ship, VisibleShip } from '../models/ship.model';
 
 /**
  * Convierte cualquier valor en un objeto Board si no lo es ya.

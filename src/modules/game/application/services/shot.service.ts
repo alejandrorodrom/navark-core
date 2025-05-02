@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Board, Ship } from '../../domain/models/board.model';
+import { Board } from '../../domain/models/board.model';
 import {
   Shot,
   ShotResult,
@@ -7,6 +7,7 @@ import {
   ShotType,
 } from '../../domain/models/shot.model';
 import { ShotRepository } from '../../domain/repository/shot.repository';
+import { Ship } from '../../domain/models/ship.model';
 
 /**
  * ShotService se encarga de procesar y registrar disparos dentro del tablero de juego.

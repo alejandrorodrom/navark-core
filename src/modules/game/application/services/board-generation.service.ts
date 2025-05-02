@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Board, Difficulty, Mode, Ship } from '../../domain/models/board.model';
+import { Board, Difficulty, Mode } from '../../domain/models/board.model';
+import { Ship } from '../../domain/models/ship.model';
 
 @Injectable()
 export class BoardGenerationService {

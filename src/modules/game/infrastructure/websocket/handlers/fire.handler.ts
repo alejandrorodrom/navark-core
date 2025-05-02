@@ -1,18 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SocketWithUser } from '../contracts/socket.types';
-import { PlayerFireDto } from '../contracts/player-fire.dto';
-import { WebSocketServerService } from '../services/web-socket-server.service';
-import { TurnStateRedis } from '../redis/turn-state.redis';
-import { NuclearStateRedis } from '../redis/nuclear-state.redis';
-import { TurnTimeoutService } from '../services/turn-timeout.service';
-import { TurnManagerService } from '../services/turn-manager.service';
-import { ShotService } from '../services/shot.service';
-import { ShotType } from '../../domain/models/shot.model';
+import { SocketWithUser } from '../../../domain/types/socket.types';
+import { PlayerFireDto } from '../../../domain/dto/player-fire.dto';
+import { WebSocketServerService } from '../web-socket-server.service';
+import { TurnStateRedis } from '../../redis/turn-state.redis';
+import { NuclearStateRedis } from '../../redis/nuclear-state.redis';
+import { TurnTimeoutService } from '../../services/turn-timeout.service';
+import { TurnManagerService } from '../../services/turn-manager.service';
+import { ShotService } from '../../../application/services/shot.service';
+import { ShotType } from '../../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
-import { GameStatus } from '../../../../prisma/prisma.enum';
-import { parseBoard } from '../utils/board.utils';
-import { GameRepository } from '../../domain/repository/game.repository';
-import { PlayerRepository } from '../../domain/repository/player.repository';
+import { GameStatus } from '../../../../../prisma/prisma.enum';
+import { parseBoard } from '../../../domain/utils/board.utils';
+import { GameRepository } from '../../../domain/repository/game.repository';
+import { PlayerRepository } from '../../../domain/repository/player.repository';
 
 /**
  * FireHandler gestiona la acción de disparo durante una partida:

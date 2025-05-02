@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GameUtils } from '../utils/game.utils';
-import { RedisUtils } from '../utils/redis.utils';
-import { SocketWithUser } from '../contracts/socket.types';
-import { WebSocketServerService } from '../services/web-socket-server.service';
-import { GameRepository } from '../../domain/repository/game.repository';
+import { GameRoomManagerService } from '../game-room-manager.service';
+import { GameRedisStateService } from '../../redis/game-redis-state.service';
+import { SocketWithUser } from '../../../domain/types/socket.types';
+import { WebSocketServerService } from '../web-socket-server.service';
+import { GameRepository } from '../../../domain/repository/game.repository';
 
 /**
  * LeaveHandler maneja la lógica cuando un jugador abandona voluntariamente una partida,
@@ -15,8 +15,8 @@ export class LeaveHandler {
 
   constructor(
     private readonly gameRepository: GameRepository,
-    private readonly gameUtils: GameUtils,
-    private readonly redisUtils: RedisUtils,
+    private readonly gameUtils: GameRoomManagerService,
+    private readonly redisUtils: GameRedisStateService,
     private readonly webSocketServerService: WebSocketServerService,
   ) {}
 

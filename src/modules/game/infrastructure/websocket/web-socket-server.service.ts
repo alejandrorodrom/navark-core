@@ -1,5 +1,3 @@
-// src/modules/game/gateway/services/web-socket-server.service.ts
-
 import { Injectable } from '@nestjs/common';
 import { Server } from 'socket.io';
 

@@ -10,8 +10,8 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 
-import { SocketWithUser } from './contracts/socket.types';
-import { PlayerFireDto } from './contracts/player-fire.dto';
+import { SocketWithUser } from '../../domain/types/socket.types';
+import { PlayerFireDto } from '../../domain/dto/player-fire.dto';
 
 import { ConnectionHandler } from './handlers/connection.handler';
 import { JoinHandler } from './handlers/join.handler';
@@ -19,8 +19,8 @@ import { FireHandler } from './handlers/fire.handler';
 import { LeaveHandler } from './handlers/leave.handler';
 import { CreatorHandler } from './handlers/creator.handler';
 import { StartGameHandler } from './handlers/start-game.handler';
-import { PlayerJoinDto } from './contracts/player-join.dto';
-import { WebSocketServerService } from './services/web-socket-server.service';
+import { PlayerJoinDto } from '../../domain/dto/player-join.dto';
+import { WebSocketServerService } from './web-socket-server.service';
 import { ReconnectHandler } from './handlers/reconnect.handler';
 
 /**

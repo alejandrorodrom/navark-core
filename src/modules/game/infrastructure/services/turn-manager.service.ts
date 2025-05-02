@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RedisUtils } from '../utils/redis.utils';
+import { GameRedisStateService } from '../redis/game-redis-state.service';
 import { TurnStateRedis } from '../redis/turn-state.redis';
-import { WebSocketServerService } from './web-socket-server.service';
-import { parseBoard } from '../utils/board.utils';
-import { GameStatsService } from './game-stats.service';
+import { WebSocketServerService } from '../websocket/web-socket-server.service';
+import { parseBoard } from '../../domain/utils/board.utils';
+import { GameStatsService } from '../../application/services/game-stats.service';
 import { GameRepository } from '../../domain/repository/game.repository';
 import { PlayerRepository } from '../../domain/repository/player.repository';
 
@@ -14,7 +14,7 @@ export class TurnManagerService {
   constructor(
     private readonly gameRepository: GameRepository,
     private readonly playerRepository: PlayerRepository,
-    private readonly redisUtils: RedisUtils,
+    private readonly redisUtils: GameRedisStateService,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly webSocketServerService: WebSocketServerService,
     private readonly gameStatsService: GameStatsService,

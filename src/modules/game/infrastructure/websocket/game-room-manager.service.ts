@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { WebSocketServerService } from '../services/web-socket-server.service';
+import { WebSocketServerService } from './web-socket-server.service';
 import { Adapter } from 'socket.io-adapter';
 
 @Injectable()
-export class GameUtils {
-  private readonly logger = new Logger(GameUtils.name);
+export class GameRoomManagerService {
+  private readonly logger = new Logger(GameRoomManagerService.name);
 
   constructor(
     private readonly webSocketServerService: WebSocketServerService,

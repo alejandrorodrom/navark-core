@@ -1,15 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SocketWithUser } from '../contracts/socket.types';
-import { WebSocketServerService } from '../services/web-socket-server.service';
-import { ReadyStateRedis } from '../redis/ready-state.redis';
-import { TeamStateRedis } from '../redis/team-state.redis';
-import { GameUtils } from '../utils/game.utils';
-import { PlayerStateRedis } from '../redis/player-state.redis';
-import { PlayerJoinDto } from '../contracts/player-join.dto';
-import { RedisUtils } from '../utils/redis.utils';
+import { SocketWithUser } from '../../../domain/types/socket.types';
+import { WebSocketServerService } from '../web-socket-server.service';
+import { ReadyStateRedis } from '../../redis/ready-state.redis';
+import { TeamStateRedis } from '../../redis/team-state.redis';
+import { GameRoomManagerService } from '../game-room-manager.service';
+import { PlayerStateRedis } from '../../redis/player-state.redis';
+import { PlayerJoinDto } from '../../../domain/dto/player-join.dto';
+import { GameRedisStateService } from '../../redis/game-redis-state.service';
 import { BoardHandler } from './board.handler';
-import { GameStatus } from '../../../../prisma/prisma.enum';
-import { GameRepository } from '../../domain/repository/game.repository';
+import { GameStatus } from '../../../../../prisma/prisma.enum';
+import { GameRepository } from '../../../domain/repository/game.repository';
 
 /**
  * JoinHandler gestiona la lógica relacionada con:
@@ -26,8 +26,8 @@ export class JoinHandler {
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
-    private readonly redisUtils: RedisUtils,
-    private readonly gameUtils: GameUtils,
+    private readonly redisUtils: GameRedisStateService,
+    private readonly gameUtils: GameRoomManagerService,
     private readonly webSocketServerService: WebSocketServerService,
     private readonly boardHandler: BoardHandler,
   ) {}

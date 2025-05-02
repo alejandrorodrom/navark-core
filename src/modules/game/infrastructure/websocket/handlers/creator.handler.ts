@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GameUtils } from '../utils/game.utils';
-import { SocketWithUser } from '../contracts/socket.types';
-import { WebSocketServerService } from '../services/web-socket-server.service';
-import { GameRepository } from '../../domain/repository/game.repository';
+import { GameRoomManagerService } from '../game-room-manager.service';
+import { SocketWithUser } from '../../../domain/types/socket.types';
+import { WebSocketServerService } from '../web-socket-server.service';
+import { GameRepository } from '../../../domain/repository/game.repository';
 
 /**
  * CreatorHandler gestiona la transferencia manual del rol de creador
@@ -13,7 +13,7 @@ export class CreatorHandler {
   private readonly logger = new Logger(CreatorHandler.name);
 
   constructor(
-    private readonly gameUtils: GameUtils,
+    private readonly gameUtils: GameRoomManagerService,
     private readonly gameRepository: GameRepository,
     private readonly webSocketServerService: WebSocketServerService,
   ) {}
