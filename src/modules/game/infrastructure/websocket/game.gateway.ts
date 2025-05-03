@@ -20,7 +20,7 @@ import { LeaveHandler } from './handlers/leave.handler';
 import { CreatorHandler } from './handlers/creator.handler';
 import { StartGameHandler } from './handlers/start-game.handler';
 import { PlayerJoinDto } from '../../domain/dto/player-join.dto';
-import { WebSocketServerService } from './web-socket-server.service';
+import { WebSocketServerService } from '../services/socket/web-socket-server.service';
 import { ReconnectHandler } from './handlers/reconnect.handler';
 
 /**

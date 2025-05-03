@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GameRoomManagerService } from '../game-room-manager.service';
+import { GameRoomManagerService } from '../../services/socket/game-room-manager.service';
 import { GameRedisStateService } from '../../redis/game-redis-state.service';
 import { SocketWithUser } from '../../../domain/types/socket.types';
-import { WebSocketServerService } from '../web-socket-server.service';
+import { WebSocketServerService } from '../../services/socket/web-socket-server.service';
 import { GameRepository } from '../../../domain/repository/game.repository';
 
 /**

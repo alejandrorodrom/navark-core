@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { WebSocketServerService } from '../web-socket-server.service';
+import { WebSocketServerService } from '../../services/socket/web-socket-server.service';
 import { TeamStateRedis } from '../../redis/team-state.redis';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import {

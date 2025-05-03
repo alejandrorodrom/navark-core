@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TurnStateRedis } from '../redis/turn-state.redis';
 import { PlayerStateRedis } from '../redis/player-state.redis';
 import { TurnManagerService } from './turn-manager.service';
-import { WebSocketServerService } from '../websocket/web-socket-server.service';
+import { WebSocketServerService } from './socket/web-socket-server.service';
 
 /**
  * TurnTimeoutService gestiona el control de tiempo de turnos:

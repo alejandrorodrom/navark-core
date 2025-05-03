@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GameRedisStateService } from '../redis/game-redis-state.service';
 import { TurnStateRedis } from '../redis/turn-state.redis';
-import { WebSocketServerService } from '../websocket/web-socket-server.service';
+import { WebSocketServerService } from './socket/web-socket-server.service';
 import { parseBoard } from '../../domain/utils/board.utils';
 import { GameStatsService } from '../../application/services/game-stats.service';
 import { GameRepository } from '../../domain/repository/game.repository';

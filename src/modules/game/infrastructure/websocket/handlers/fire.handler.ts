@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { PlayerFireDto } from '../../../domain/dto/player-fire.dto';
-import { WebSocketServerService } from '../web-socket-server.service';
+import { WebSocketServerService } from '../../services/socket/web-socket-server.service';
 import { TurnStateRedis } from '../../redis/turn-state.redis';
 import { NuclearStateRedis } from '../../redis/nuclear-state.redis';
 import { TurnTimeoutService } from '../../services/turn-timeout.service';
