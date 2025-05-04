@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Server } from 'socket.io';
 
 @Injectable()
-export class WebSocketServerService {
+export class SocketServerAdapter {
   private server: Server;
 
   setServer(server: Server) {

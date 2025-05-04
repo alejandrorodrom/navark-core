@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SocketWithUser } from '../../../domain/types/socket.types';
-import { WebSocketServerService } from '../../services/socket/web-socket-server.service';
+import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { ReadyStateRedis } from '../../redis/ready-state.redis';
 import { TeamStateRedis } from '../../redis/team-state.redis';
-import { GameRoomManagerService } from '../../services/socket/game-room-manager.service';
+import { RoomManagerService } from '../../services/game/room-manager.service';
 import { PlayerStateRedis } from '../../redis/player-state.redis';
 import { PlayerJoinDto } from '../../../domain/dto/player-join.dto';
-import { GameRedisStateService } from '../../redis/game-redis-state.service';
+import { StateCleanerService } from '../../services/game/state-cleaner.service';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
 import { GameRepository } from '../../../domain/repository/game.repository';
@@ -26,9 +26,9 @@ export class JoinHandler {
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
-    private readonly redisUtils: GameRedisStateService,
-    private readonly gameUtils: GameRoomManagerService,
-    private readonly webSocketServerService: WebSocketServerService,
+    private readonly redisUtils: StateCleanerService,
+    private readonly gameUtils: RoomManagerService,
+    private readonly webSocketServerService: SocketServerAdapter,
     private readonly boardHandler: BoardHandler,
   ) {}
 

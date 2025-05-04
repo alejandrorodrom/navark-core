@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GameRedisStateService } from '../../redis/game-redis-state.service';
-import { WebSocketServerService } from '../../services/socket/web-socket-server.service';
+import { StateCleanerService } from '../../services/game/state-cleaner.service';
+import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { BoardHandler } from './board.handler';
 import { GameRepository } from '../../../domain/repository/game.repository';
@@ -11,10 +11,10 @@ export class ReconnectHandler {
   private readonly logger = new Logger(ReconnectHandler.name);
 
   constructor(
-    private readonly redisUtils: GameRedisStateService,
+    private readonly redisUtils: StateCleanerService,
     private readonly gameRepository: GameRepository,
     private readonly spectatorRepository: SpectatorRepository,
-    private readonly webSocketServerService: WebSocketServerService,
+    private readonly webSocketServerService: SocketServerAdapter,
     private readonly boardHandler: BoardHandler,
   ) {}
 

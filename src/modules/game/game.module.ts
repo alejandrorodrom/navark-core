@@ -22,11 +22,11 @@ import { JoinHandler } from './infrastructure/websocket/handlers/join.handler';
 import { LeaveHandler } from './infrastructure/websocket/handlers/leave.handler';
 import { StartGameHandler } from './infrastructure/websocket/handlers/start-game.handler';
 import { BoardHandler } from './infrastructure/websocket/handlers/board.handler';
-import { GameRoomManagerService } from './infrastructure/services/socket/game-room-manager.service';
-import { GameRedisStateService } from './infrastructure/redis/game-redis-state.service';
-import { TurnManagerService } from './infrastructure/services/turn-manager.service';
-import { TurnTimeoutService } from './infrastructure/services/turn-timeout.service';
-import { WebSocketServerService } from './infrastructure/services/socket/web-socket-server.service';
+import { RoomManagerService } from './infrastructure/services/game/room-manager.service';
+import { StateCleanerService } from './infrastructure/services/game/state-cleaner.service';
+import { TurnManagerService } from './infrastructure/services/game/turn-manager.service';
+import { TurnTimeoutService } from './infrastructure/services/game/turn-timeout.service';
+import { SocketServerAdapter } from './infrastructure/adapters/socket-server.adapter';
 import { BoardGenerationService } from './application/services/board-generation.service';
 import { ShotService } from './application/services/shot.service';
 import { GameStatsService } from './application/services/game-stats.service';
@@ -51,13 +51,13 @@ import { RedisStateModule } from './infrastructure/redis/redis-state.module';
     StartGameHandler,
     BoardHandler,
 
-    GameRoomManagerService,
-    GameRedisStateService,
+    RoomManagerService,
+    StateCleanerService,
 
     TurnManagerService,
     TurnTimeoutService,
 
-    WebSocketServerService,
+    SocketServerAdapter,
     BoardGenerationService,
     ShotService,
     GameStatsService,

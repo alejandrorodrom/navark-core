@@ -20,7 +20,7 @@ import { LeaveHandler } from './handlers/leave.handler';
 import { CreatorHandler } from './handlers/creator.handler';
 import { StartGameHandler } from './handlers/start-game.handler';
 import { PlayerJoinDto } from '../../domain/dto/player-join.dto';
-import { WebSocketServerService } from '../services/socket/web-socket-server.service';
+import { SocketServerAdapter } from '../adapters/socket-server.adapter';
 import { ReconnectHandler } from './handlers/reconnect.handler';
 
 /**
@@ -46,7 +46,7 @@ export class GameGateway
     private readonly leaveHandler: LeaveHandler,
     private readonly creatorHandler: CreatorHandler,
     private readonly startGameHandler: StartGameHandler,
-    private readonly webSocketServerService: WebSocketServerService,
+    private readonly webSocketServerService: SocketServerAdapter,
   ) {}
 
   afterInit() {

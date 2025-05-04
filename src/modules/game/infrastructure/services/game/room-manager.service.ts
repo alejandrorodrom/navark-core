@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { WebSocketServerService } from './web-socket-server.service';
+import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { Adapter } from 'socket.io-adapter';
 
 @Injectable()
-export class GameRoomManagerService {
-  private readonly logger = new Logger(GameRoomManagerService.name);
+export class RoomManagerService {
+  private readonly logger = new Logger(RoomManagerService.name);
 
   constructor(
-    private readonly webSocketServerService: WebSocketServerService,
+    private readonly webSocketServerService: SocketServerAdapter,
   ) {}
 
   getSocketsInRoom(room: string) {

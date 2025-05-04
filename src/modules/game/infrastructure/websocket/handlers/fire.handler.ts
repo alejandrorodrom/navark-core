@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { PlayerFireDto } from '../../../domain/dto/player-fire.dto';
-import { WebSocketServerService } from '../../services/socket/web-socket-server.service';
+import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { TurnStateRedis } from '../../redis/turn-state.redis';
 import { NuclearStateRedis } from '../../redis/nuclear-state.redis';
-import { TurnTimeoutService } from '../../services/turn-timeout.service';
-import { TurnManagerService } from '../../services/turn-manager.service';
+import { TurnTimeoutService } from '../../services/game/turn-timeout.service';
+import { TurnManagerService } from '../../services/game/turn-manager.service';
 import { ShotService } from '../../../application/services/shot.service';
 import { ShotType } from '../../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
@@ -33,7 +33,7 @@ export class FireHandler {
     private readonly nuclearStateRedis: NuclearStateRedis,
     private readonly turnTimeoutService: TurnTimeoutService,
     private readonly turnManagerService: TurnManagerService,
-    private readonly webSocketServerService: WebSocketServerService,
+    private readonly webSocketServerService: SocketServerAdapter,
     private readonly shotService: ShotService,
     private readonly boardHandler: BoardHandler,
   ) {}

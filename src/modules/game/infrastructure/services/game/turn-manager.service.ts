@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GameRedisStateService } from '../redis/game-redis-state.service';
-import { TurnStateRedis } from '../redis/turn-state.redis';
-import { WebSocketServerService } from './socket/web-socket-server.service';
-import { parseBoard } from '../../domain/utils/board.utils';
-import { GameStatsService } from '../../application/services/game-stats.service';
-import { GameRepository } from '../../domain/repository/game.repository';
-import { PlayerRepository } from '../../domain/repository/player.repository';
+import { StateCleanerService } from './state-cleaner.service';
+import { TurnStateRedis } from '../../redis/turn-state.redis';
+import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
+import { parseBoard } from '../../../domain/utils/board.utils';
+import { GameStatsService } from '../../../application/services/game-stats.service';
+import { GameRepository } from '../../../domain/repository/game.repository';
+import { PlayerRepository } from '../../../domain/repository/player.repository';
 
 @Injectable()
 export class TurnManagerService {
@@ -14,9 +14,9 @@ export class TurnManagerService {
   constructor(
     private readonly gameRepository: GameRepository,
     private readonly playerRepository: PlayerRepository,
-    private readonly redisUtils: GameRedisStateService,
+    private readonly redisUtils: StateCleanerService,
     private readonly turnStateRedis: TurnStateRedis,
-    private readonly webSocketServerService: WebSocketServerService,
+    private readonly webSocketServerService: SocketServerAdapter,
     private readonly gameStatsService: GameStatsService,
   ) {}
 

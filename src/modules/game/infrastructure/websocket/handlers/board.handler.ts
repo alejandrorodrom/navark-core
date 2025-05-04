@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { WebSocketServerService } from '../../services/socket/web-socket-server.service';
+import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { TeamStateRedis } from '../../redis/team-state.redis';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import {
@@ -15,7 +15,7 @@ export class BoardHandler {
   constructor(
     private readonly gameRepository: GameRepository,
     private readonly teamStateRedis: TeamStateRedis,
-    private readonly webSocketServerService: WebSocketServerService,
+    private readonly webSocketServerService: SocketServerAdapter,
   ) {}
 
   /**

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GameRoomManagerService } from '../../services/socket/game-room-manager.service';
+import { RoomManagerService } from '../../services/game/room-manager.service';
 import { SocketWithUser } from '../../../domain/types/socket.types';
-import { WebSocketServerService } from '../../services/socket/web-socket-server.service';
+import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { ReadyStateRedis } from '../../redis/ready-state.redis';
 import { TeamStateRedis } from '../../redis/team-state.redis';
 import { TurnStateRedis } from '../../redis/turn-state.redis';
@@ -18,8 +18,8 @@ export class StartGameHandler {
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly turnStateRedis: TurnStateRedis,
-    private readonly gameUtils: GameRoomManagerService,
-    private readonly webSocketServerService: WebSocketServerService,
+    private readonly gameUtils: RoomManagerService,
+    private readonly webSocketServerService: SocketServerAdapter,
     private readonly boardGenerationService: BoardGenerationService,
     private readonly boardHandler: BoardHandler,
   ) {}
