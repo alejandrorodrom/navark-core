@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
+import { SocketServerAdapter } from '../../../adapters/socket-server.adapter';
 import { Adapter } from 'socket.io-adapter';
 
 @Injectable()

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { GameRepository } from '../../domain/repository/game.repository';
-import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
-import { GameResponseDto } from '../../domain/dto/game-response.dto';
-import { GameMapper } from '../../infrastructure/mappers/game.mapper';
+import { GameRepository } from '../../../domain/repository/game.repository';
+import { MatchmakingDto } from '../../../domain/dto/matchmaking.dto';
+import { GameResponseDto } from '../../../domain/dto/game-response.dto';
+import { GameMapper } from '../../../infrastructure/mappers/game.mapper';
 
 @Injectable()
 export class MatchmakingService {

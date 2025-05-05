@@ -4,9 +4,9 @@ import { PlayerFireDto } from '../../../domain/dto/player-fire.dto';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { TurnStateRedis } from '../../redis/turn-state.redis';
 import { NuclearStateRedis } from '../../redis/nuclear-state.redis';
-import { TurnTimeoutService } from '../../services/game/turn-timeout.service';
-import { TurnManagerService } from '../../services/game/turn-manager.service';
-import { ShotService } from '../../../application/services/shot.service';
+import { TurnTimerService } from '../../services/game/turn/turn-timer.service';
+import { TurnManagerService } from '../../services/game/turn/turn-manager.service';
+import { ShotService } from '../../../application/services/fire/shot.service';
 import { ShotType } from '../../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
@@ -31,7 +31,7 @@ export class FireHandler {
     private readonly playerRepository: PlayerRepository,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly nuclearStateRedis: NuclearStateRedis,
-    private readonly turnTimeoutService: TurnTimeoutService,
+    private readonly turnTimeoutService: TurnTimerService,
     private readonly turnManagerService: TurnManagerService,
     private readonly webSocketServerService: SocketServerAdapter,
     private readonly shotService: ShotService,

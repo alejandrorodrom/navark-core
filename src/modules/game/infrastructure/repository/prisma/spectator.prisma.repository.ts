@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
-import { SpectatorRepository } from '../../domain/repository/spectator.repository';
-import { Spectator } from '../../../../prisma/prisma.types';
+import { PrismaService } from '../../../../../prisma/prisma.service';
+import { SpectatorRepository } from '../../../domain/repository/spectator.repository';
+import { Spectator } from '../../../../../prisma/prisma.types';
 
 @Injectable()
 export class SpectatorPrismaRepository implements SpectatorRepository {

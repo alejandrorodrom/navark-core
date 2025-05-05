@@ -3,13 +3,13 @@ import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { ReadyStateRedis } from '../../redis/ready-state.redis';
 import { TeamStateRedis } from '../../redis/team-state.redis';
-import { RoomManagerService } from '../../services/game/room-manager.service';
+import { RoomManagerService } from '../../services/game/room/room-manager.service';
 import { PlayerStateRedis } from '../../redis/player-state.redis';
 import { PlayerJoinDto } from '../../../domain/dto/player-join.dto';
-import { StateCleanerService } from '../../services/game/state-cleaner.service';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
 import { GameRepository } from '../../../domain/repository/game.repository';
+import { GameSocketMapRepository } from '../../repository/redis/game-socket-map.redis.repository';
 
 /**
  * JoinHandler gestiona la lógica relacionada con:
@@ -26,10 +26,10 @@ export class JoinHandler {
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
-    private readonly redisUtils: StateCleanerService,
     private readonly gameUtils: RoomManagerService,
     private readonly webSocketServerService: SocketServerAdapter,
     private readonly boardHandler: BoardHandler,
+    private readonly gameSocketMapRepository: GameSocketMapRepository,
   ) {}
 
   /**
@@ -69,7 +69,7 @@ export class JoinHandler {
         );
 
         await client.join(room);
-        await this.redisUtils.saveSocketMapping(
+        await this.gameSocketMapRepository.save(
           client.id,
           client.data.userId,
           data.gameId,
@@ -111,11 +111,7 @@ export class JoinHandler {
       }
 
       await client.join(room);
-      await this.redisUtils.saveSocketMapping(
-        client.id,
-        client.data.userId,
-        data.gameId,
-      );
+      await this.gameSocketMapRepository.save(client.id, client.data.userId, data.gameId);
 
       client.to(room).emit('player:joined', { socketId: client.id });
       client.emit('player:joined:ack', {
@@ -144,7 +140,7 @@ export class JoinHandler {
         );
 
         await client.join(room);
-        await this.redisUtils.saveSocketMapping(
+        await this.gameSocketMapRepository.save(
           client.id,
           client.data.userId,
           data.gameId,

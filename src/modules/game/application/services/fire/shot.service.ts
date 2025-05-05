@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { Board } from '../../domain/models/board.model';
+import { Board } from '../../../domain/models/board.model';
 import {
   Shot,
   ShotResult,
   ShotTarget,
   ShotType,
-} from '../../domain/models/shot.model';
-import { ShotRepository } from '../../domain/repository/shot.repository';
-import { Ship } from '../../domain/models/ship.model';
+} from '../../../domain/models/shot.model';
+import { ShotRepository } from '../../../domain/repository/shot.repository';
+import { Ship } from '../../../domain/models/ship.model';
 
 /**
  * ShotService se encarga de procesar y registrar disparos dentro del tablero de juego.

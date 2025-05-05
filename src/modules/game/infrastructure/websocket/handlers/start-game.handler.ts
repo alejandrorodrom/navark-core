@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RoomManagerService } from '../../services/game/room-manager.service';
+import { RoomManagerService } from '../../services/game/room/room-manager.service';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { ReadyStateRedis } from '../../redis/ready-state.redis';
 import { TeamStateRedis } from '../../redis/team-state.redis';
 import { TurnStateRedis } from '../../redis/turn-state.redis';
-import { BoardGenerationService } from '../../../application/services/board-generation.service';
+import { BoardGenerationService } from '../../../application/services/game-init/board-generation.service';
 import { BoardHandler } from './board.handler';
 import { GameRepository } from '../../../domain/repository/game.repository';
 

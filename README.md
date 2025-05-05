@@ -41,7 +41,7 @@
 | `/infrastructure`     | Adaptadores externos: Prisma, Redis, Gateway WebSocket.                   |
 | `/gateway/handlers`   | Handlers de eventos WebSocket (`player:join`, `player:fire`, etc.).       |
 | `/gateway/redis`      | Servicios Redis para sincronización de estado (`ready`, `turn`, `team`, etc.). |
-| `/gateway/utils`      | Utilidades para Redis y gestión de partidas (`RoomManagerService`, `StateCleanerService`).  |
+| `/gateway/utils`      | Utilidades para Redis y gestión de partidas (`RoomManagerService`, `RedisCleanerService`).  |
 
 ---
 

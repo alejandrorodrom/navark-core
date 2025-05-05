@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RoomManagerService } from '../../services/game/room-manager.service';
-import { StateCleanerService } from '../../services/game/state-cleaner.service';
+import { RoomManagerService } from '../../services/game/room/room-manager.service';
+import { RedisCleanerService } from '../../services/game/cleanup/redis-cleaner.service';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
+import { GameSocketMapRepository } from '../../repository/redis/game-socket-map.redis.repository';
 
 /**
  * ConnectionHandler gestiona eventos de conexión y desconexión
@@ -15,8 +16,9 @@ export class ConnectionHandler {
 
   constructor(
     private readonly gameUtils: RoomManagerService,
-    private readonly redisUtils: StateCleanerService,
+    private readonly redisUtils: RedisCleanerService,
     private readonly gameRepository: GameRepository,
+    private readonly gameSocketMapRepository: GameSocketMapRepository,
     private readonly webSocketServerService: SocketServerAdapter,
   ) {}
 
@@ -38,7 +40,7 @@ export class ConnectionHandler {
   async handleDisconnect(client: SocketWithUser): Promise<void> {
     this.logger.log(`Cliente desconectado: socketId=${client.id}`);
 
-    const mapping = await this.redisUtils.getSocketMapping(client.id);
+    const mapping = await this.gameSocketMapRepository.get(client.id);
 
     if (!mapping) {
       this.logger.warn(`No se encontró mapeo para socketId=${client.id}`);
@@ -47,7 +49,7 @@ export class ConnectionHandler {
 
     const { gameId, userId } = mapping;
 
-    await this.redisUtils.deleteSocketMapping(client.id);
+    await this.gameSocketMapRepository.delete(client.id);
 
     const game = await this.gameRepository.findById(gameId);
     if (!game) {

@@ -1,18 +1,18 @@
 import { Module } from '@nestjs/common';
 import { GameController } from './infrastructure/http/game.controller';
-import { CreateGameService } from './application/services/create-game.service';
-import { MatchmakingService } from './application/services/matchmaking.service';
+import { CreateGameService } from './application/services/game-init/create-game.service';
+import { MatchmakingService } from './application/services/matchmaking/matchmaking.service';
 import { GameFacade } from './application/facade/game.facade';
 import { GameRepository } from './domain/repository/game.repository';
-import { GamePrismaRepository } from './infrastructure/prisma/game.prisma.repository';
+import { GamePrismaRepository } from './infrastructure/repository/prisma/game.prisma.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisModule } from '../../redis/redis.module';
 import { PlayerRepository } from './domain/repository/player.repository';
-import { PlayerPrismaRepository } from './infrastructure/prisma/player.prisma.repository';
+import { PlayerPrismaRepository } from './infrastructure/repository/prisma/player.prisma.repository';
 import { SpectatorRepository } from './domain/repository/spectator.repository';
-import { SpectatorPrismaRepository } from './infrastructure/prisma/spectator.prisma.repository';
+import { SpectatorPrismaRepository } from './infrastructure/repository/prisma/spectator.prisma.repository';
 import { ShotRepository } from './domain/repository/shot.repository';
-import { ShotPrismaRepository } from './infrastructure/prisma/shot.prisma.repository';
+import { ShotPrismaRepository } from './infrastructure/repository/prisma/shot.prisma.repository';
 import { GameGateway } from './infrastructure/websocket/game.gateway';
 import { ConnectionHandler } from './infrastructure/websocket/handlers/connection.handler';
 import { ReconnectHandler } from './infrastructure/websocket/handlers/reconnect.handler';
@@ -22,14 +22,14 @@ import { JoinHandler } from './infrastructure/websocket/handlers/join.handler';
 import { LeaveHandler } from './infrastructure/websocket/handlers/leave.handler';
 import { StartGameHandler } from './infrastructure/websocket/handlers/start-game.handler';
 import { BoardHandler } from './infrastructure/websocket/handlers/board.handler';
-import { RoomManagerService } from './infrastructure/services/game/room-manager.service';
-import { StateCleanerService } from './infrastructure/services/game/state-cleaner.service';
-import { TurnManagerService } from './infrastructure/services/game/turn-manager.service';
-import { TurnTimeoutService } from './infrastructure/services/game/turn-timeout.service';
+import { RoomManagerService } from './infrastructure/services/game/room/room-manager.service';
+import { RedisCleanerService } from './infrastructure/services/game/cleanup/redis-cleaner.service';
+import { TurnManagerService } from './infrastructure/services/game/turn/turn-manager.service';
+import { TurnTimerService } from './infrastructure/services/game/turn/turn-timer.service';
 import { SocketServerAdapter } from './infrastructure/adapters/socket-server.adapter';
-import { BoardGenerationService } from './application/services/board-generation.service';
-import { ShotService } from './application/services/shot.service';
-import { GameStatsService } from './application/services/game-stats.service';
+import { BoardGenerationService } from './application/services/game-init/board-generation.service';
+import { ShotService } from './application/services/fire/shot.service';
+import { GameStatsService } from './application/services/stats/game-stats.service';
 import { RedisStateModule } from './infrastructure/redis/redis-state.module';
 
 @Module({
@@ -52,10 +52,10 @@ import { RedisStateModule } from './infrastructure/redis/redis-state.module';
     BoardHandler,
 
     RoomManagerService,
-    StateCleanerService,
+    RedisCleanerService,
 
     TurnManagerService,
-    TurnTimeoutService,
+    TurnTimerService,
 
     SocketServerAdapter,
     BoardGenerationService,

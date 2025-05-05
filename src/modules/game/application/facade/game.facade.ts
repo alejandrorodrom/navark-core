@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { CreateGameService } from '../services/create-game.service';
+import { CreateGameService } from '../services/game-init/create-game.service';
 import { CreateGameDto } from '../../domain/dto/create-game.dto';
 import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
-import { MatchmakingService } from '../services/matchmaking.service';
+import { MatchmakingService } from '../services/matchmaking/matchmaking.service';
 
 @Injectable()
 export class GameFacade {

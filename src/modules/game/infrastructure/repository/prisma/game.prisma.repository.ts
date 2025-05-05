@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
-import { GameRepository } from '../../domain/repository/game.repository';
-import { CreateGameDto } from '../../domain/dto/create-game.dto';
+import { PrismaService } from '../../../../../prisma/prisma.service';
+import { GameRepository } from '../../../domain/repository/game.repository';
+import { CreateGameDto } from '../../../domain/dto/create-game.dto';
 import {
   Game,
   GamePlayer,
   Spectator,
   User,
-} from '../../../../prisma/prisma.types';
-import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
-import { GameStatus } from '../../../../prisma/prisma.enum';
-import { Board } from '../../domain/models/board.model';
+} from '../../../../../prisma/prisma.types';
+import { MatchmakingDto } from '../../../domain/dto/matchmaking.dto';
+import { GameStatus } from '../../../../../prisma/prisma.enum';
+import { Board } from '../../../domain/models/board.model';
 
 @Injectable()
 export class GamePrismaRepository implements GameRepository {

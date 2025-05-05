@@ -1,21 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { StateCleanerService } from '../../services/game/state-cleaner.service';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { BoardHandler } from './board.handler';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { SpectatorRepository } from '../../../domain/repository/spectator.repository';
+import { GameSocketMapRepository } from '../../repository/redis/game-socket-map.redis.repository';
 
 @Injectable()
 export class ReconnectHandler {
   private readonly logger = new Logger(ReconnectHandler.name);
 
   constructor(
-    private readonly redisUtils: StateCleanerService,
     private readonly gameRepository: GameRepository,
     private readonly spectatorRepository: SpectatorRepository,
     private readonly webSocketServerService: SocketServerAdapter,
     private readonly boardHandler: BoardHandler,
+    private readonly gameSocketMapRepository: GameSocketMapRepository,
   ) {}
 
   /**
@@ -25,9 +25,10 @@ export class ReconnectHandler {
    * @param client Nuevo socket del jugador que se reconecta.
    */
   async handleReconnect(client: SocketWithUser): Promise<void> {
-    const previousMapping = await this.redisUtils.getLastGameMappingByUserId(
-      client.data.userId,
-    );
+    const previousMapping =
+      await this.gameSocketMapRepository.getLastGameByUserId(
+        client.data.userId,
+      );
 
     if (!previousMapping) {
       this.logger.warn(
@@ -79,7 +80,7 @@ export class ReconnectHandler {
 
     // Join a la sala y guardar nuevo socket mapping
     await client.join(room);
-    await this.redisUtils.saveSocketMapping(
+    await this.gameSocketMapRepository.save(
       client.id,
       client.data.userId,
       gameId,
