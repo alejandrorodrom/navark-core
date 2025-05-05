@@ -4,7 +4,6 @@ import { PlayerRepository } from '../../../../domain/repository/player.repositor
 import { PlayerEliminationService } from './player-elimination.service';
 import { RedisCleanerService } from '../cleanup/redis-cleaner.service';
 import { SocketServerAdapter } from '../../../adapters/socket-server.adapter';
-import { parseBoard } from '../../../../domain/utils/board.utils';
 import { GameStatsService } from '../../../../application/services/stats/game-stats.service';
 import { TurnLogicService } from '../../../../application/services/turn/turn-logic.service';
 
@@ -24,8 +23,6 @@ export class TurnOrchestratorService {
   async passTurn(gameId: number, currentUserId: number): Promise<void> {
     const game = await this.gameRepository.findByIdWithPlayers(gameId);
     if (!game || !game.board) return;
-
-    const board = parseBoard(game.board);
 
     const eliminatedUserIds =
       await this.playerEliminationService.eliminateDefeatedPlayers(game);
