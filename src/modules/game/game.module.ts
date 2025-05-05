@@ -33,7 +33,6 @@ import { GameStatsService } from './application/services/stats/game-stats.servic
 import { RedisStateModule } from './infrastructure/redis/redis-state.module';
 import { GameSocketMapRedisRepository } from './infrastructure/repository/redis/game-socket-map.redis.repository';
 import { PlayerEliminationService } from './infrastructure/services/game/turn/player-elimination.service';
-import { TurnLogicService } from './application/services/turn/turn-logic.service';
 
 @Module({
   controllers: [GameController],
@@ -41,7 +40,7 @@ import { TurnLogicService } from './application/services/turn/turn-logic.service
     PrismaService,
     CreateGameService,
     MatchmakingService,
-    TurnLogicService,
+
     GameFacade,
 
     GameGateway,
