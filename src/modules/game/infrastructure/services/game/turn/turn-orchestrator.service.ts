@@ -4,7 +4,9 @@ import { PlayerRepository } from '../../../../domain/repository/player.repositor
 import { PlayerEliminationService } from './player-elimination.service';
 import { RedisCleanerService } from '../cleanup/redis-cleaner.service';
 import { SocketServerAdapter } from '../../../adapters/socket-server.adapter';
+import { parseBoard } from '../../../../domain/utils/board.utils';
 import { GameStatsService } from '../../../../application/services/stats/game-stats.service';
+import { TurnLogicService } from '../../../../application/services/turn/turn-logic.service';
 
 @Injectable()
 export class TurnOrchestratorService {
@@ -21,32 +23,35 @@ export class TurnOrchestratorService {
 
   async passTurn(gameId: number, currentUserId: number): Promise<void> {
     const game = await this.gameRepository.findByIdWithPlayers(gameId);
-    if (!game) return;
+    if (!game || !game.board) return;
 
-    const eliminated =
+    const board = parseBoard(game.board);
+
+    const eliminatedUserIds =
       await this.playerEliminationService.eliminateDefeatedPlayers(game);
-    for (const userId of eliminated) {
-      this.socketServer.emitToGame(gameId, 'player:eliminated', {
-        userId,
-      });
-
+    for (const userId of eliminatedUserIds) {
+      this.socketServer.emitToGame(gameId, 'player:eliminated', { userId });
       this.logger.log(
         `Jugador userId=${userId} eliminado por perder todos sus barcos.`,
       );
     }
 
     const alivePlayers = game.gamePlayers.filter(
-      (p) => !eliminated.includes(p.userId) && !p.leftAt,
+      (p) => !eliminatedUserIds.includes(p.userId) && !p.leftAt,
     );
+    const aliveUserIds = alivePlayers.map((p) => p.userId);
 
-    // Finalizar partida individual
-    if (alivePlayers.length === 1 && game.mode === 'individual') {
-      const [winner] = alivePlayers;
+    // Finalización en modo individual
+    if (
+      TurnLogicService.isOnlyOnePlayerRemaining(aliveUserIds) &&
+      game.mode === 'individual'
+    ) {
+      const winner = alivePlayers[0];
       await this.playerRepository.markPlayerAsWinner(winner.id);
       await this.gameRepository.markGameAsFinished(gameId);
       await this.redisCleaner.clearGameRedisState(gameId);
-      const stats = await this.gameStatsService.generateStats(gameId);
 
+      const stats = await this.gameStatsService.generateStats(gameId);
       this.socketServer.emitToGame(gameId, 'game:ended', {
         mode: 'individual',
         winnerUserId: winner.userId,
@@ -59,19 +64,18 @@ export class TurnOrchestratorService {
       return;
     }
 
-    // Finalizar partida por equipos
+    // Finalización por equipos
     if (game.mode === 'teams') {
-      const teamsAlive = new Set(alivePlayers.map((p) => p.team));
-      if (teamsAlive.size === 1) {
-        const winningTeam = [...teamsAlive][0];
+      const winningTeam = TurnLogicService.getSingleAliveTeam(alivePlayers);
+      if (winningTeam !== null) {
         await this.playerRepository.markTeamPlayersAsWinners(
           gameId,
           winningTeam,
         );
         await this.gameRepository.markGameAsFinished(gameId);
         await this.redisCleaner.clearGameRedisState(gameId);
-        const stats = await this.gameStatsService.generateStats(gameId);
 
+        const stats = await this.gameStatsService.generateStats(gameId);
         this.socketServer.emitToGame(gameId, 'game:ended', {
           mode: 'teams',
           winningTeam,
@@ -85,12 +89,11 @@ export class TurnOrchestratorService {
       }
     }
 
-    // Avanzar al siguiente jugador
-    const playerOrder = alivePlayers.map((p) => p.userId);
-    const currentIndex = playerOrder.indexOf(currentUserId);
-    const nextIndex = (currentIndex + 1) % playerOrder.length;
-    const nextUserId = playerOrder[nextIndex];
-
+    // Siguiente turno
+    const nextUserId = TurnLogicService.getNextUserId(
+      aliveUserIds,
+      currentUserId,
+    );
     this.socketServer.emitToGame(gameId, 'turn:changed', {
       userId: nextUserId,
     });
