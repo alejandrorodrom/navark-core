@@ -111,7 +111,11 @@ export class JoinHandler {
       }
 
       await client.join(room);
-      await this.gameSocketMapRedisRepository.save(client.id, client.data.userId, data.gameId);
+      await this.gameSocketMapRedisRepository.save(
+        client.id,
+        client.data.userId,
+        data.gameId,
+      );
 
       client.to(room).emit('player:joined', { socketId: client.id });
       client.emit('player:joined:ack', {
