@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { parseBoard } from '../../../domain/utils/board.utils';
 import { Shot, ShotType } from '../../../domain/models/shot.model';
 import { PlayerStats } from '../../../domain/models/stats.model';
 import { GameRepository } from '../../../domain/repository/game.repository';
+import { parseBoard } from '../../../infrastructure/mappers/board.mapper';
 
 @Injectable()
 export class GameStatsService {

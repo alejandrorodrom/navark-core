@@ -3,7 +3,7 @@ import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { ReadyStateRedis } from '../../redis/ready-state.redis';
 import { TeamStateRedis } from '../../redis/team-state.redis';
-import { RoomManagerService } from '../../services/game/room/room-manager.service';
+import { LobbyManagerService } from '../../services/game/lobby/lobby-manager.service';
 import { PlayerStateRedis } from '../../redis/player-state.redis';
 import { PlayerJoinDto } from '../../../domain/dto/player-join.dto';
 import { BoardHandler } from './board.handler';
@@ -26,7 +26,7 @@ export class JoinHandler {
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
-    private readonly gameUtils: RoomManagerService,
+    private readonly gameUtils: LobbyManagerService,
     private readonly webSocketServerService: SocketServerAdapter,
     private readonly boardHandler: BoardHandler,
     private readonly gameSocketMapRedisRepository: GameSocketMapRedisRepository,

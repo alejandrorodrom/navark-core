@@ -22,7 +22,7 @@ import { JoinHandler } from './infrastructure/websocket/handlers/join.handler';
 import { LeaveHandler } from './infrastructure/websocket/handlers/leave.handler';
 import { StartGameHandler } from './infrastructure/websocket/handlers/start-game.handler';
 import { BoardHandler } from './infrastructure/websocket/handlers/board.handler';
-import { RoomManagerService } from './infrastructure/services/game/room/room-manager.service';
+import { LobbyManagerService } from './infrastructure/services/game/lobby/lobby-manager.service';
 import { RedisCleanerService } from './infrastructure/services/game/cleanup/redis-cleaner.service';
 import { TurnOrchestratorService } from './infrastructure/services/game/turn/turn-orchestrator.service';
 import { TurnTimeoutService } from './infrastructure/services/game/turn/turn-timeout.service';
@@ -57,7 +57,7 @@ import { TurnLogicService } from './application/services/turn/turn-logic.service
     StartGameHandler,
     BoardHandler,
 
-    RoomManagerService,
+    LobbyManagerService,
     RedisCleanerService,
 
     PlayerEliminationService,

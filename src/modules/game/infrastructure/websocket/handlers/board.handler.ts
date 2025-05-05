@@ -6,9 +6,9 @@ import {
   getFormattedShots,
   getMyShipsState,
   getVisibleShips,
-  parseBoard,
 } from '../../../domain/utils/board.utils';
 import { GameRepository } from '../../../domain/repository/game.repository';
+import { parseBoard } from '../../mappers/board.mapper';
 
 @Injectable()
 export class BoardHandler {

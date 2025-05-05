@@ -10,9 +10,9 @@ import { ShotService } from '../../../application/services/fire/shot.service';
 import { ShotType } from '../../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
-import { parseBoard } from '../../../domain/utils/board.utils';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { PlayerRepository } from '../../../domain/repository/player.repository';
+import { parseBoard } from '../../mappers/board.mapper';
 
 /**
  * FireHandler gestiona la acción de disparo durante una partida:
@@ -134,7 +134,10 @@ export class FireHandler {
         );
 
         if (!playerStillAlive) {
-          await this.playerRepository.markPlayerAsDefeated(gameId, hitShipOwnerId);
+          await this.playerRepository.markPlayerAsDefeated(
+            gameId,
+            hitShipOwnerId,
+          );
 
           server.to(room).emit('player:eliminated', {
             userId: hitShipOwnerId,

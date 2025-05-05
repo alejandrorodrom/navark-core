@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PlayerRepository } from '../../../../domain/repository/player.repository';
-import { parseBoard } from '../../../../domain/utils/board.utils';
 import { GameWithPlayers } from '../../../../../../prisma/prisma.types';
+import { parseBoard } from '../../../mappers/board.mapper';
 
 /**
  * PlayerEliminationService se encarga de identificar y marcar como eliminados

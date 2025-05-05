@@ -1,16 +1,5 @@
-import { Board } from '../models/board.model';
 import { Shot, VisualShot } from '../models/shot.model';
 import { Ship, VisibleShip } from '../models/ship.model';
-
-/**
- * Convierte cualquier valor en un objeto Board si no lo es ya.
- */
-export function parseBoard(raw: unknown): Board {
-  if (typeof raw === 'string') {
-    return JSON.parse(raw) as Board;
-  }
-  return raw as Board;
-}
 
 /**
  * Retorna solo los barcos visibles para el jugador autenticado.

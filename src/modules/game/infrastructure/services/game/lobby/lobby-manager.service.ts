@@ -3,8 +3,8 @@ import { SocketServerAdapter } from '../../../adapters/socket-server.adapter';
 import { Adapter } from 'socket.io-adapter';
 
 @Injectable()
-export class RoomManagerService {
-  private readonly logger = new Logger(RoomManagerService.name);
+export class LobbyManagerService {
+  private readonly logger = new Logger(LobbyManagerService.name);
 
   constructor(private readonly webSocketServerService: SocketServerAdapter) {}
 
