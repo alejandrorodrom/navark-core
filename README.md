@@ -68,6 +68,27 @@
 
 ## 📚 Eventos WebSocket
 
+### Sistema de Eventos
+
+El sistema de eventos WebSocket está organizado en los siguientes componentes principales:
+
+1. **GameGateway**: Punto de entrada principal para todos los eventos WebSocket
+2. **SocketServerAdapter**: Gestiona la emisión de eventos a clientes específicos o salas
+3. **Handlers Especializados**:
+  - `ConnectionHandler`: Gestión de conexiones/desconexiones
+  - `JoinHandler`: Unión a partidas
+  - `FireHandler`: Sistema de disparos
+  - `LeaveHandler`: Abandonar partidas
+  - `CreatorHandler`: Gestión del creador
+  - `StartGameHandler`: Inicio de partida
+  - `ReconnectHandler`: Reconexión de jugadores
+
+4. **Servicios de Control**:
+  - `TurnOrchestratorService`: Control de turnos y victoria
+  - `TurnTimeoutService`: Gestión de timeouts (30s)
+  - `PlayerEliminationService`: Eliminación de jugadores
+  - `RedisCleanerService`: Limpieza de estados
+
 ### 🛥️ Eventos del Cliente ➜ Servidor
 
 | Evento              | Payload                           | Descripción                                                  |
@@ -76,39 +97,55 @@
 | `player:ready`      | `{ gameId }`                      | Marcar al jugador como listo.                                |
 | `player:chooseTeam` | `{ gameId, team }`                | Elegir equipo (modo por equipos).                            |
 | `player:leave`      | `{ gameId }`                      | Abandonar la partida.                                        |
-| `creator:transfer`  | `{ gameId, newCreatorUserId }`    | Transferir la propiedad de creador de sala.                  |
+| `creator:transfer`  | `{ gameId, targetUserId }`        | Transferir la propiedad de creador de sala.                  |
 | `game:start`        | `{ gameId }`                      | Solicitar el inicio de la partida.                           |
 | `player:fire`       | `{ gameId, x, y, shotType }`      | Ejecutar un disparo en una celda específica.                 |
 
 ### 🛥️ Eventos del Servidor ➜ Cliente
 
-| Evento                 | Payload                                           | Tipo       | Descripción                                                   |
-|------------------------|---------------------------------------------------|------------|---------------------------------------------------------------|
-| `player:joined`        | `{ socketId }`                                    | Broadcast  | Un jugador se ha unido a la sala.                             |
-| `player:joined:ack`    | `{ success, room, createdById, reconnected? }`    | Individual | Confirmación de unión como jugador.                           |
-| `spectator:joined:ack` | `{ success, room, createdById, reconnected? }`    | Individual | Confirmación de unión como espectador.                        |
-| `join:denied`          | `{ reason }`                                      | Individual | Rechazo de unión a la partida.                                |
-| `player:ready`         | `{ socketId }`                                    | Broadcast  | Un jugador se ha marcado como listo.                          |
-| `player:ready:ack`     | `{ success }`                                     | Individual | Confirmación del cambio de estado a listo.                    |
-| `all:ready`            | `N/A`                                             | Broadcast  | Todos los jugadores están listos.                             |
-| `player:teamAssigned`  | `{ socketId, team }`                              | Broadcast  | Asignación de equipo a un jugador.                            |
-| `player:left`          | `{ userId, nickname }`                            | Broadcast  | Un jugador ha salido de la partida.                           |
-| `creator:changed`      | `{ newCreatorUserId, newCreatorNickname }`        | Broadcast  | Se ha asignado un nuevo creador de partida.                  |
-| `game:start:ack`       | `{ success, error? }`                             | Individual | Confirmación del inicio o error.                              |
-| `game:started`         | `{ gameId }`                                      | Broadcast  | La partida ha comenzado oficialmente.                         |
-| `turn:changed`         | `{ userId }`                                      | Broadcast  | Turno asignado a un nuevo jugador.                            |
-| `player:fired`         | `{ shooterUserId, x, y, hit, sunk }`              | Broadcast  | Resultado de un disparo emitido.                              |
-| `player:fire:ack`      | `{ success, hit, sunk }`                          | Individual | Confirmación del disparo.                                     |
-| `player:eliminated`    | `{ userId }`                                      | Broadcast  | Un jugador ha sido eliminado (sin barcos).                    |
-| `nuclear:status`       | `{ progress, hasNuclear, used }`                  | Individual | Estado del disparo nuclear del jugador.                       |
-| `turn:timeout`         | `{ userId }`                                      | Broadcast  | Un jugador no disparó a tiempo y fue penalizado.              |
-| `player:kicked`        | `{ reason }`                                      | Individual | Jugador fue expulsado automáticamente por inactividad.        |
-| `game:ended`           | `{ mode, winnerUserId?, winningTeam?, stats }`    | Broadcast  | Final de partida con detalle de ganadores y estadísticas.     |
-| `game:abandoned`       | `N/A`                                             | Broadcast  | La partida fue eliminada por abandono total.                  |
-| `player:reconnected`   | `{ userId, nickname }`                            | Broadcast  | Un jugador reconectó correctamente.                           |
-| `reconnect:ack`        | `{ success }`                                     | Individual | Reconexión exitosa confirmada.                                |
-| `reconnect:failed`     | `{ reason }`                                      | Individual | Error de reconexión, se debe reingresar.                      |
-| `board:update`         | `{ board: { size, ships, shots, myShips } }`      | Individual | Estado completo del tablero personal del jugador.             |
+#### Gestión de Sala y Conexiones
+| Evento                 | Payload                                           | Descripción                                                   |
+|------------------------|---------------------------------------------------|---------------------------------------------------------------|
+| `player:joined`        | `{ socketId }`                                    | Un jugador se ha unido a la sala.                             |
+| `player:joined:ack`    | `{ success, room, createdById, reconnected? }`    | Confirmación de unión como jugador.                           |
+| `spectator:joined:ack` | `{ success, room, createdById, reconnected? }`    | Confirmación de unión como espectador.                        |
+| `join:denied`          | `{ reason }`                                      | Rechazo de unión a la partida.                                |
+| `player:left`          | `{ userId, nickname }`                            | Un jugador ha salido de la partida.                           |
+| `creator:changed`      | `{ newCreatorUserId, newCreatorNickname }`        | Se ha asignado un nuevo creador de partida.                   |
+
+#### Sistema de Turnos y Timeouts
+| Evento                 | Payload                                           | Descripción                                                   |
+|------------------------|---------------------------------------------------|---------------------------------------------------------------|
+| `turn:changed`         | `{ userId }`                                      | Turno asignado a un nuevo jugador.                            |
+| `turn:timeout`         | `{ userId }`                                      | Jugador no disparó a tiempo (30 segundos).                    |
+| `player:kicked`        | `{ reason }`                                      | Jugador expulsado por inactividad (3 turnos perdidos).        |
+
+#### Disparos y Combate
+| Evento                 | Payload                                           | Descripción                                                   |
+|------------------------|---------------------------------------------------|---------------------------------------------------------------|
+| `player:fired`         | `{ shooterUserId, x, y, hit, sunk }`              | Resultado de un disparo realizado.                            |
+| `player:fire:ack`      | `{ success, hit, sunk }`                          | Confirmación individual del disparo.                          |
+| `player:eliminated`    | `{ userId }`                                      | Jugador eliminado por perder todos sus barcos.                |
+| `nuclear:status`       | `{ progress, hasNuclear, used }`                  | Estado del arma nuclear (6 aciertos consecutivos).            |
+
+#### Estado y Finalización
+| Evento                 | Payload                                           | Descripción                                                   |
+|------------------------|---------------------------------------------------|---------------------------------------------------------------|
+| `game:started`         | `{ gameId }`                                      | La partida ha comenzado oficialmente.                         |
+| `game:ended`           | `{ mode, winnerUserId?, winningTeam?, stats }`    | Fin de partida con ganadores y estadísticas.                  |
+| `game:abandoned`       | `N/A`                                             | Partida eliminada por abandono total.                         |
+| `board:update`         | `{ board: { size, ships, shots, myShips } }`      | Estado actualizado del tablero personal.                      |
+
+#### Preparación y Sincronización
+| Evento                 | Payload                                           | Descripción                                                   |
+|------------------------|---------------------------------------------------|---------------------------------------------------------------|
+| `player:ready`         | `{ socketId }`                                    | Jugador marcado como listo.                                   |
+| `player:ready:ack`     | `{ success }`                                     | Confirmación de estado listo.                                 |
+| `all:ready`            | `N/A`                                             | Todos los jugadores están listos.                             |
+| `player:teamAssigned`  | `{ socketId, team }`                              | Equipo asignado a un jugador.                                |
+| `player:reconnected`   | `{ userId, nickname }`                            | Jugador reconectado exitosamente.                             |
+| `reconnect:ack`        | `{ success }`                                     | Confirmación de reconexión.                                   |
+| `reconnect:failed`     | `{ reason }`                                      | Error en la reconexión.                                       |
 
 ---
 
@@ -130,3 +167,4 @@ npx prisma migrate dev
 
 # Iniciar servidor en modo desarrollo
 npm run start:dev
+```
