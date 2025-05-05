@@ -1,51 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Board } from '../../../domain/models/board.model';
-import {
-  Shot,
-  ShotResult,
-  ShotTarget,
-  ShotType,
-} from '../../../domain/models/shot.model';
+import { Shot, ShotType, ShotTarget } from '../../../domain/models/shot.model';
 import { ShotRepository } from '../../../domain/repository/shot.repository';
-import { Ship } from '../../../domain/models/ship.model';
+import { ShotEvaluatorService } from '../../../domain/services/shot/shot-evaluator.service';
 
 /**
- * ShotService se encarga de procesar y registrar disparos dentro del tablero de juego.
+ * ShotService se encarga de orquestar disparos y registrarlos.
  */
 @Injectable()
 export class ShotService {
   constructor(private readonly shotRepository: ShotRepository) {}
-
-  /**
-   * Evalúa si el disparo ha impactado y si un barco fue hundido.
-   * @param ships Barcos del tablero.
-   * @param targetRow Fila objetivo del disparo.
-   * @param targetCol Columna objetivo del disparo.
-   * @returns Resultado del disparo.
-   */
-  handleShot(ships: Ship[], targetRow: number, targetCol: number): ShotResult {
-    for (const ship of ships) {
-      for (const pos of ship.positions) {
-        if (
-          pos.row === targetRow &&
-          pos.col === targetCol &&
-          !pos.isHit &&
-          !ship.isSunk
-        ) {
-          pos.isHit = true;
-
-          if (ship.positions.every((p) => p.isHit)) {
-            ship.isSunk = true;
-            return { hit: true, sunkShipId: ship.shipId };
-          }
-
-          return { hit: true };
-        }
-      }
-    }
-
-    return { hit: false };
-  }
 
   /**
    * Procesa y registra un disparo en la base de datos.
@@ -64,7 +28,11 @@ export class ShotService {
   }> {
     const { gameId, shooterId, type, target, board } = params;
 
-    const result = this.handleShot(board.ships, target.row, target.col);
+    const result = ShotEvaluatorService.evaluate(
+      board.ships,
+      target.row,
+      target.col,
+    );
 
     const createdShot = await this.shotRepository.registerShot(
       gameId,
