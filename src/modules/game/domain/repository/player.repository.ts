@@ -4,7 +4,7 @@ export abstract class PlayerRepository {
     playerId: number,
   ): Promise<void>;
 
-  abstract markPlayerAsDefeatedById(id: number): Promise<void>;
+  abstract markPlayerAsDefeatedById(playerId: number): Promise<void>;
 
   abstract markPlayerAsWinner(playerId: number): Promise<void>;
 

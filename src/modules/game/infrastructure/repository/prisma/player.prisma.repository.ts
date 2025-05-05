@@ -13,9 +13,9 @@ export class PlayerPrismaRepository implements PlayerRepository {
     });
   }
 
-  async markPlayerAsDefeatedById(id: number): Promise<void> {
+  async markPlayerAsDefeatedById(playerId: number): Promise<void> {
     await this.prisma.gamePlayer.updateMany({
-      where: { id: id },
+      where: { id: playerId },
       data: { leftAt: new Date() },
     });
   }
