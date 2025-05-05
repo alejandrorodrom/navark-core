@@ -4,7 +4,7 @@ import { SocketWithUser } from '../../../domain/types/socket.types';
 import { BoardHandler } from './board.handler';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { SpectatorRepository } from '../../../domain/repository/spectator.repository';
-import { GameSocketMapRepository } from '../../repository/redis/game-socket-map.redis.repository';
+import { GameSocketMapRedisRepository } from '../../repository/redis/game-socket-map.redis.repository';
 
 @Injectable()
 export class ReconnectHandler {
@@ -15,7 +15,7 @@ export class ReconnectHandler {
     private readonly spectatorRepository: SpectatorRepository,
     private readonly webSocketServerService: SocketServerAdapter,
     private readonly boardHandler: BoardHandler,
-    private readonly gameSocketMapRepository: GameSocketMapRepository,
+    private readonly gameSocketMapRedisRepository: GameSocketMapRedisRepository,
   ) {}
 
   /**
@@ -26,7 +26,7 @@ export class ReconnectHandler {
    */
   async handleReconnect(client: SocketWithUser): Promise<void> {
     const previousMapping =
-      await this.gameSocketMapRepository.getLastGameByUserId(
+      await this.gameSocketMapRedisRepository.getLastGameByUserId(
         client.data.userId,
       );
 
@@ -80,7 +80,7 @@ export class ReconnectHandler {
 
     // Join a la sala y guardar nuevo socket mapping
     await client.join(room);
-    await this.gameSocketMapRepository.save(
+    await this.gameSocketMapRedisRepository.save(
       client.id,
       client.data.userId,
       gameId,

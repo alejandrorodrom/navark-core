@@ -9,7 +9,7 @@ import { PlayerJoinDto } from '../../../domain/dto/player-join.dto';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
 import { GameRepository } from '../../../domain/repository/game.repository';
-import { GameSocketMapRepository } from '../../repository/redis/game-socket-map.redis.repository';
+import { GameSocketMapRedisRepository } from '../../repository/redis/game-socket-map.redis.repository';
 
 /**
  * JoinHandler gestiona la lógica relacionada con:
@@ -29,7 +29,7 @@ export class JoinHandler {
     private readonly gameUtils: RoomManagerService,
     private readonly webSocketServerService: SocketServerAdapter,
     private readonly boardHandler: BoardHandler,
-    private readonly gameSocketMapRepository: GameSocketMapRepository,
+    private readonly gameSocketMapRedisRepository: GameSocketMapRedisRepository,
   ) {}
 
   /**
@@ -69,7 +69,7 @@ export class JoinHandler {
         );
 
         await client.join(room);
-        await this.gameSocketMapRepository.save(
+        await this.gameSocketMapRedisRepository.save(
           client.id,
           client.data.userId,
           data.gameId,
@@ -111,7 +111,7 @@ export class JoinHandler {
       }
 
       await client.join(room);
-      await this.gameSocketMapRepository.save(client.id, client.data.userId, data.gameId);
+      await this.gameSocketMapRedisRepository.save(client.id, client.data.userId, data.gameId);
 
       client.to(room).emit('player:joined', { socketId: client.id });
       client.emit('player:joined:ack', {
@@ -140,7 +140,7 @@ export class JoinHandler {
         );
 
         await client.join(room);
-        await this.gameSocketMapRepository.save(
+        await this.gameSocketMapRedisRepository.save(
           client.id,
           client.data.userId,
           data.gameId,

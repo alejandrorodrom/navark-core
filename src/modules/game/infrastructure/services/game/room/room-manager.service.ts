@@ -6,9 +6,7 @@ import { Adapter } from 'socket.io-adapter';
 export class RoomManagerService {
   private readonly logger = new Logger(RoomManagerService.name);
 
-  constructor(
-    private readonly webSocketServerService: SocketServerAdapter,
-  ) {}
+  constructor(private readonly webSocketServerService: SocketServerAdapter) {}
 
   getSocketsInRoom(room: string) {
     const server = this.webSocketServerService.getServer();

@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../../../../redis/redis.service';
 
 /**
- * GameSocketMapRepository gestiona los mapeos temporales
+ * GameSocketMapRedisRepository gestiona los mapeos temporales
  * entre socketId, userId y gameId dentro del contexto de partidas activas.
  */
 @Injectable()
-export class GameSocketMapRepository {
+export class GameSocketMapRedisRepository {
   constructor(private readonly redisService: RedisService) {}
 
   private get redis() {

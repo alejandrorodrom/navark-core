@@ -4,7 +4,7 @@ import { RedisCleanerService } from '../../services/game/cleanup/redis-cleaner.s
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
-import { GameSocketMapRepository } from '../../repository/redis/game-socket-map.redis.repository';
+import { GameSocketMapRedisRepository } from '../../repository/redis/game-socket-map.redis.repository';
 
 /**
  * ConnectionHandler gestiona eventos de conexión y desconexión
@@ -18,7 +18,7 @@ export class ConnectionHandler {
     private readonly gameUtils: RoomManagerService,
     private readonly redisUtils: RedisCleanerService,
     private readonly gameRepository: GameRepository,
-    private readonly gameSocketMapRepository: GameSocketMapRepository,
+    private readonly gameSocketMapRedisRepository: GameSocketMapRedisRepository,
     private readonly webSocketServerService: SocketServerAdapter,
   ) {}
 
@@ -40,7 +40,7 @@ export class ConnectionHandler {
   async handleDisconnect(client: SocketWithUser): Promise<void> {
     this.logger.log(`Cliente desconectado: socketId=${client.id}`);
 
-    const mapping = await this.gameSocketMapRepository.get(client.id);
+    const mapping = await this.gameSocketMapRedisRepository.get(client.id);
 
     if (!mapping) {
       this.logger.warn(`No se encontró mapeo para socketId=${client.id}`);
@@ -49,7 +49,7 @@ export class ConnectionHandler {
 
     const { gameId, userId } = mapping;
 
-    await this.gameSocketMapRepository.delete(client.id);
+    await this.gameSocketMapRedisRepository.delete(client.id);
 
     const game = await this.gameRepository.findById(gameId);
     if (!game) {
