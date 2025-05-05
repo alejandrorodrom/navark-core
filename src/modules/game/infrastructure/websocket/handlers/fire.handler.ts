@@ -4,8 +4,8 @@ import { PlayerFireDto } from '../../../domain/dto/player-fire.dto';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { TurnStateRedis } from '../../redis/turn-state.redis';
 import { NuclearStateRedis } from '../../redis/nuclear-state.redis';
-import { TurnTimerService } from '../../services/game/turn/turn-timer.service';
-import { TurnManagerService } from '../../services/game/turn/turn-manager.service';
+import { TurnTimeoutService } from '../../services/game/turn/turn-timeout.service';
+import { TurnOrchestratorService } from '../../services/game/turn/turn-orchestrator.service';
 import { ShotService } from '../../../application/services/fire/shot.service';
 import { ShotType } from '../../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
@@ -31,8 +31,8 @@ export class FireHandler {
     private readonly playerRepository: PlayerRepository,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly nuclearStateRedis: NuclearStateRedis,
-    private readonly turnTimeoutService: TurnTimerService,
-    private readonly turnManagerService: TurnManagerService,
+    private readonly turnTimeoutService: TurnTimeoutService,
+    private readonly turnManagerService: TurnOrchestratorService,
     private readonly webSocketServerService: SocketServerAdapter,
     private readonly shotService: ShotService,
     private readonly boardHandler: BoardHandler,
@@ -164,7 +164,7 @@ export class FireHandler {
 
     await this.boardHandler.sendBoardUpdate(client, gameId);
 
-    await this.turnTimeoutService.clearTurnTimeout(gameId);
+    await this.turnTimeoutService.clear(gameId);
     await this.turnManagerService.passTurn(gameId, client.data.userId);
   }
 

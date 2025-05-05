@@ -24,13 +24,15 @@ import { StartGameHandler } from './infrastructure/websocket/handlers/start-game
 import { BoardHandler } from './infrastructure/websocket/handlers/board.handler';
 import { RoomManagerService } from './infrastructure/services/game/room/room-manager.service';
 import { RedisCleanerService } from './infrastructure/services/game/cleanup/redis-cleaner.service';
-import { TurnManagerService } from './infrastructure/services/game/turn/turn-manager.service';
-import { TurnTimerService } from './infrastructure/services/game/turn/turn-timer.service';
+import { TurnOrchestratorService } from './infrastructure/services/game/turn/turn-orchestrator.service';
+import { TurnTimeoutService } from './infrastructure/services/game/turn/turn-timeout.service';
 import { SocketServerAdapter } from './infrastructure/adapters/socket-server.adapter';
 import { BoardGenerationService } from './application/services/game-init/board-generation.service';
 import { ShotService } from './application/services/fire/shot.service';
 import { GameStatsService } from './application/services/stats/game-stats.service';
 import { RedisStateModule } from './infrastructure/redis/redis-state.module';
+import { GameSocketMapRedisRepository } from './infrastructure/repository/redis/game-socket-map.redis.repository';
+import { PlayerEliminationService } from './infrastructure/services/game/turn/player-elimination.service';
 
 @Module({
   controllers: [GameController],
@@ -41,6 +43,8 @@ import { RedisStateModule } from './infrastructure/redis/redis-state.module';
     GameFacade,
 
     GameGateway,
+
+    SocketServerAdapter,
 
     ConnectionHandler,
     ReconnectHandler,
@@ -54,14 +58,15 @@ import { RedisStateModule } from './infrastructure/redis/redis-state.module';
     RoomManagerService,
     RedisCleanerService,
 
-    TurnManagerService,
-    TurnTimerService,
+    PlayerEliminationService,
+    TurnOrchestratorService,
+    TurnTimeoutService,
 
-    SocketServerAdapter,
     BoardGenerationService,
     ShotService,
     GameStatsService,
 
+    GameSocketMapRedisRepository,
     { provide: GameRepository, useClass: GamePrismaRepository },
     { provide: PlayerRepository, useClass: PlayerPrismaRepository },
     { provide: ShotRepository, useClass: ShotPrismaRepository },

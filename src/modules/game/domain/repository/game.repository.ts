@@ -1,9 +1,9 @@
 import { CreateGameDto } from '../dto/create-game.dto';
 import {
   Game,
-  GamePlayer,
-  Spectator,
-  User,
+  GameWithPlayers,
+  GameWithPlayersAndSpectator,
+  GameWithPlayersAndUsers,
 } from '../../../../prisma/prisma.types';
 import { MatchmakingDto } from '../dto/matchmaking.dto';
 import { Board } from '../models/board.model';
@@ -19,19 +19,15 @@ export abstract class GameRepository {
     userId: number,
   ): Promise<Game>;
 
-  abstract findByIdWithPlayers(
-    id: number,
-  ): Promise<(Game & { gamePlayers: GamePlayer[] }) | null>;
+  abstract findByIdWithPlayers(id: number): Promise<GameWithPlayers | null>;
 
   abstract findByIdWithPlayersAndUsers(
     id: number,
-  ): Promise<(Game & { gamePlayers: (GamePlayer & { user: User })[] }) | null>;
+  ): Promise<GameWithPlayersAndUsers | null>;
 
   abstract findByIdWithPlayersAndSpectator(
     id: number,
-  ): Promise<
-    (Game & { gamePlayers: GamePlayer[]; spectators: Spectator[] }) | null
-  >;
+  ): Promise<GameWithPlayersAndSpectator | null>;
 
   abstract findById(id: number): Promise<Game | null>;
 

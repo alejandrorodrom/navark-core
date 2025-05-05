@@ -4,9 +4,9 @@ import { GameRepository } from '../../../domain/repository/game.repository';
 import { CreateGameDto } from '../../../domain/dto/create-game.dto';
 import {
   Game,
-  GamePlayer,
-  Spectator,
-  User,
+  GameWithPlayers,
+  GameWithPlayersAndSpectator,
+  GameWithPlayersAndUsers,
 } from '../../../../../prisma/prisma.types';
 import { MatchmakingDto } from '../../../domain/dto/matchmaking.dto';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
@@ -93,9 +93,7 @@ export class GamePrismaRepository implements GameRepository {
     return newGame;
   }
 
-  async findByIdWithPlayers(
-    id: number,
-  ): Promise<(Game & { gamePlayers: GamePlayer[] }) | null> {
+  async findByIdWithPlayers(id: number): Promise<GameWithPlayers | null> {
     return this.prisma.game.findUnique({
       where: { id },
       include: { gamePlayers: true },
@@ -104,7 +102,7 @@ export class GamePrismaRepository implements GameRepository {
 
   async findByIdWithPlayersAndUsers(
     id: number,
-  ): Promise<(Game & { gamePlayers: (GamePlayer & { user: User })[] }) | null> {
+  ): Promise<GameWithPlayersAndUsers | null> {
     return this.prisma.game.findUnique({
       where: { id },
       include: {
@@ -117,9 +115,7 @@ export class GamePrismaRepository implements GameRepository {
 
   async findByIdWithPlayersAndSpectator(
     id: number,
-  ): Promise<
-    (Game & { gamePlayers: GamePlayer[]; spectators: Spectator[] }) | null
-  > {
+  ): Promise<GameWithPlayersAndSpectator | null> {
     return this.prisma.game.findUnique({
       where: { id: id },
       include: { gamePlayers: true, spectators: true },
