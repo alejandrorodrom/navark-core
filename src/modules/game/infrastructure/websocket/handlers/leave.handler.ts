@@ -61,10 +61,7 @@ export class LeaveHandler {
       );
 
       // Notificar a todos los jugadores en la sala sobre la salida
-      this.gameEventEmitter.emit(gameId, GameEvents.PLAYER_LEFT, {
-        userId: userId,
-        nickname: nickname,
-      });
+      this.gameEventEmitter.emitPlayerLeft(gameId, userId, nickname);
 
       // Desvincular al jugador de la sala de juego
       await this.socketServerAdapter.leaveGameRoom(client.id, gameId);
@@ -126,10 +123,11 @@ export class LeaveHandler {
           );
 
           // Notificar a todos sobre el cambio de creador
-          this.gameEventEmitter.emit(gameId, GameEvents.CREATOR_CHANGED, {
-            newCreatorUserId: fallbackUserData.userId,
-            newCreatorNickname: fallbackUserData.nickname,
-          });
+          this.gameEventEmitter.emitCreatorChanged(
+            gameId,
+            fallbackUserData.userId,
+            fallbackUserData.nickname,
+          );
 
           this.logger.log(
             `Nuevo creador asignado automáticamente: userId=${fallbackUserData.userId} para partida gameId=${gameId}`,
@@ -142,8 +140,7 @@ export class LeaveHandler {
       }
     } catch (error) {
       this.logger.error(
-        `Error al procesar salida de jugador: gameId=${gameId}, userId=${userId}, error=${error.message}`,
-        error.stack,
+        `Error al procesar salida de jugador: gameId=${gameId}, userId=${userId}, error=${error}`,
       );
     }
   }
