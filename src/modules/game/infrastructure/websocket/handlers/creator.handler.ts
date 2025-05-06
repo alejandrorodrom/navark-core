@@ -5,6 +5,7 @@ import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { GameEvents } from '../events/constants/game-events.enum';
 import { EventPayload } from '../events/types/events-payload.type';
+import { GameEventEmitter } from '../events/emitters/game-event.emitter';
 
 /**
  * Servicio especializado en la gestión del rol de administrador (creador) de partidas,
@@ -27,6 +28,7 @@ export class CreatorHandler {
     private readonly lobbyManager: LobbyManagerService,
     private readonly gameRepository: GameRepository,
     private readonly socketServerAdapter: SocketServerAdapter,
+    private readonly gameEventEmitter: GameEventEmitter,
   ) {}
 
   /**
@@ -66,10 +68,11 @@ export class CreatorHandler {
         this.logger.warn(
           `Transferencia denegada: partida no encontrada gameId=${gameId}`,
         );
-        client.emit(GameEvents.CREATOR_TRANSFER_ACK, {
-          success: false,
-          error: 'Partida no encontrada',
-        });
+        this.gameEventEmitter.emitCreatorTransferAck(
+          client.id,
+          false,
+          'Partida no encontrada',
+        );
         return;
       }
 
@@ -78,10 +81,11 @@ export class CreatorHandler {
         this.logger.warn(
           `Transferencia denegada: userId=${requesterId} intentó transferir sin ser creador en gameId=${gameId} (creador actual=${game.createdById})`,
         );
-        client.emit(GameEvents.CREATOR_TRANSFER_ACK, {
-          success: false,
-          error: 'No tienes permisos para transferir el rol de creador',
-        });
+        this.gameEventEmitter.emitCreatorTransferAck(
+          client.id,
+          false,
+          'No tienes permisos para transferir el rol de creador',
+        );
         return;
       }
 
@@ -90,10 +94,11 @@ export class CreatorHandler {
         this.logger.warn(
           `Transferencia redundante: userId=${requesterId} intentó transferir a sí mismo en gameId=${gameId}`,
         );
-        client.emit(GameEvents.CREATOR_TRANSFER_ACK, {
-          success: false,
-          error: 'Ya eres el creador de esta partida',
-        });
+        this.gameEventEmitter.emitCreatorTransferAck(
+          client.id,
+          false,
+          'Ya eres el creador de esta partida',
+        );
         return;
       }
 
@@ -106,10 +111,11 @@ export class CreatorHandler {
         this.logger.warn(
           `Transferencia fallida: usuario destino userId=${targetUserId} no está conectado en gameId=${gameId}`,
         );
-        client.emit(GameEvents.CREATOR_TRANSFER_ACK, {
-          success: false,
-          error: 'El jugador destino no está conectado a la partida',
-        });
+        this.gameEventEmitter.emitCreatorTransferAck(
+          client.id,
+          false,
+          'El jugador destino no está conectado a la partida',
+        );
         return;
       }
 
@@ -122,10 +128,11 @@ export class CreatorHandler {
         this.logger.error(
           `Error interno: no se pudieron obtener datos de usuario para socketId=${targetSocketId}`,
         );
-        client.emit(GameEvents.CREATOR_TRANSFER_ACK, {
-          success: false,
-          error: 'Error interno al obtener datos del usuario destino',
-        });
+        this.gameEventEmitter.emitCreatorTransferAck(
+          client.id,
+          false,
+          'Error interno al obtener datos del usuario destino',
+        );
         return;
       }
 
@@ -136,13 +143,14 @@ export class CreatorHandler {
       );
 
       // Notificar a todos los participantes sobre el cambio de creador
-      this.socketServerAdapter.emitToGame(gameId, GameEvents.CREATOR_CHANGED, {
-        newCreatorUserId: targetUserId,
-        newCreatorNickname: targetUserData.nickname,
-      });
+      this.gameEventEmitter.emitCreatorChanged(
+        gameId,
+        targetUserId,
+        targetUserData.nickname,
+      );
 
       // Confirmar al solicitante que la transferencia fue exitosa
-      client.emit(GameEvents.CREATOR_TRANSFER_ACK, { success: true });
+      this.gameEventEmitter.emitCreatorTransferAck(client.id, true);
 
       this.logger.log(
         `Transferencia de creador exitosa: gameId=${gameId}, anterior=${requesterNickname} (${requesterId}), nuevo=${targetUserData.nickname} (${targetUserId})`,
@@ -153,10 +161,11 @@ export class CreatorHandler {
         error,
       );
 
-      client.emit(GameEvents.CREATOR_TRANSFER_ACK, {
-        success: false,
-        error: 'Error interno al procesar la transferencia',
-      });
+      this.gameEventEmitter.emitCreatorTransferAck(
+        client.id,
+        false,
+        'Error interno al procesar la transferencia',
+      );
     }
   }
 }
