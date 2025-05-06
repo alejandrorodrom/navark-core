@@ -6,6 +6,7 @@ import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { GameSocketMapRedisRepository } from '../../repository/redis/game-socket-map.redis.repository';
 import { GameEvents } from '../events/constants/game-events.enum';
+import { GameEventEmitter } from '../events/emitters/game-event.emitter';
 
 /**
  * Servicio responsable de gestionar los ciclos de vida de las conexiones WebSocket
@@ -31,6 +32,7 @@ export class ConnectionHandler {
     private readonly gameRepository: GameRepository,
     private readonly gameSocketMapRedisRepository: GameSocketMapRedisRepository,
     private readonly socketServerAdapter: SocketServerAdapter,
+    private readonly gameEventEmitter: GameEventEmitter,
   ) {}
 
   /**
@@ -110,10 +112,11 @@ export class ConnectionHandler {
       }
 
       // Notificar a todos los clientes en la sala sobre la desconexión
-      this.socketServerAdapter.emitToGame(gameId, GameEvents.PLAYER_LEFT, {
+      this.gameEventEmitter.emitPlayerLeft(
+        gameId,
         userId,
-        nickname: client.data.nickname || 'Jugador desconocido',
-      });
+        client.data.nickname || 'Jugador desconocido',
+      );
 
       // Verificar si la sala ha quedado vacía
       const allSocketIds = this.socketServerAdapter.getSocketsInGame(gameId);
@@ -130,11 +133,7 @@ export class ConnectionHandler {
         );
 
         // Emitir evento de juego abandonado y expulsar a todos los jugadores
-        this.socketServerAdapter.emitToGame(
-          gameId,
-          GameEvents.GAME_ABANDONED,
-          null,
-        );
+        this.gameEventEmitter.emitGameAbandoned(gameId);
         await this.lobbyManager.kickPlayersFromRoom(gameId);
 
         // Eliminar datos de la partida tanto en BD como en Redis
@@ -208,10 +207,7 @@ export class ConnectionHandler {
       await this.gameRepository.updateGameCreator(gameId, userId);
 
       // Notificar a todos los jugadores sobre el cambio de creador
-      this.socketServerAdapter.emitToGame(gameId, GameEvents.CREATOR_CHANGED, {
-        newCreatorUserId: userId,
-        newCreatorNickname: nickname,
-      });
+      this.gameEventEmitter.emitCreatorChanged(gameId, userId, nickname);
 
       this.logger.log(
         `Nuevo creador asignado automáticamente: userId=${userId}, nickname=${nickname} para gameId=${gameId}`,
