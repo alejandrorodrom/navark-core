@@ -1,8 +1,7 @@
 # Navark Core - Backend
 
-**Navark Core** es el backend oficial del juego multijugador de batalla naval **Navark**, desarrollado con **NestJS**, *
-*Prisma ORM**, **PostgreSQL**, **Socket.IO** y **Redis**, siguiendo arquitectura hexagonal para una separación estricta
-de responsabilidades.
+**Navark Core** es el backend oficial del juego multijugador de batalla naval **Navark**, desarrollado con tecnologías
+modernas para ofrecer una experiencia en tiempo real fluida y robusta.
 
 ---
 
@@ -12,25 +11,26 @@ de responsabilidades.
 - **Socket.IO** (Servidor WebSocket en tiempo real)
 - **Prisma ORM + PostgreSQL** (Persistencia de datos estructurada)
 - **Redis** (Sincronización de estados en memoria: turnos, jugadores, equipos, disparos nucleares)
-- **Arquitectura Hexagonal** (`domain` / `application` / `infrastructure`)
+- **Arquitectura Hexagonal** (separación en capas: `domain` / `application` / `infrastructure`)
 
-## 🔥 Funcionalidades principales
+## 🔥 Funcionalidades implementadas
 
-- Partidas multijugador con **2 a 6 jugadores**.
-- Modos de juego:
-    - **Individual** (todos contra todos)
-    - **Por equipos** (configurables)
+- **Partidas multijugador** con capacidad para **2 a 6 jugadores**
+- **Modos de juego versátiles:**
+    - **Individual**: todos contra todos en batalla campal
+    - **Por equipos**: colaboración estratégica entre aliados
 
-- **Sistema de turnos** con límite de **30 segundos** por jugador.
-- **Sistema de aciertos consecutivos**: un jugador mantiene su turno mientras siga acertando disparos.
-- **Sistema nuclear**: desbloqueado tras **6 aciertos consecutivos** con disparos simples.
-- **Expulsión automática** por inactividad (3 turnos).
-- **Reconexión automática**: permite volver a la partida si no fue eliminada.
-- **Reasignación automática de creador** al abandonar.
-- **Modo espectador**: permite unirse como observador sin participar.
-- **Eliminación automática** al perder todos los barcos.
-- **Soporte híbrido de usuarios**: registrados e invitados.
-- **Estadísticas completas por jugador** al finalizar la partida.
+- **Sistema de turnos avanzado** con límite de **30 segundos** por jugador
+- **Arma nuclear especial**: desbloqueada al lograr **6 aciertos consecutivos**
+- **Gestión automática de jugadores:**
+    - Expulsión tras 3 turnos de inactividad
+    - Reconexión inteligente si la partida sigue activa
+    - Reasignación del rol de creador si el anfitrión abandona
+
+- **Modo espectador** para unirse como observador sin participar
+- **Eliminación automática** de jugadores sin barcos restantes
+- **Soporte híbrido de usuarios** (registrados e invitados)
+- **Estadísticas detalladas** al finalizar cada partida
 
 ## 📂 Estructura del proyecto
 
@@ -40,187 +40,308 @@ de responsabilidades.
 | `/domain`         | Modelos del dominio (`Board`, `Shot`, `Ship`, etc.).                  |
 | `/infrastructure` | Adaptadores externos: Prisma, Redis, Gateway WebSocket.               |
 
-## 📆 Endpoints HTTP
+## 📆 Endpoints HTTP implementados
 
 ### 🛡️ Autenticación (`/auth`)
 
-| Método | Ruta             | JWT | Descripción                             |
-|--------|------------------|-----|-----------------------------------------|
-| POST   | `/auth/guest`    | ❌   | Crear sesión como invitado.             |
-| POST   | `/auth/identify` | ❌   | Identificar usuario registrado o nuevo. |
-| POST   | `/auth/refresh`  | ❌   | Renovar `access_token`.                 |
-| GET    | `/auth/me`       | ✅   | Obtener datos del usuario actual.       |
-| PATCH  | `/auth/me`       | ✅   | Actualizar perfil del usuario.          |
+| Método | Ruta             | JWT | Descripción                                            |
+|--------|------------------|-----|--------------------------------------------------------|
+| POST   | `/auth/guest`    | ❌   | Crea una sesión temporal como jugador invitado.        |
+| POST   | `/auth/identify` | ❌   | Identifica a un usuario registrado o crea uno nuevo.   |
+| POST   | `/auth/refresh`  | ❌   | Renueva el `access_token` usando el token de refresco. |
+| GET    | `/auth/me`       | ✅   | Obtiene los datos completos del usuario autenticado.   |
+| PATCH  | `/auth/me`       | ✅   | Actualiza la información del perfil del usuario.       |
 
-### 🎮 Partidas (`/games`)
+### 🎮 Gestión de Partidas (`/games`)
 
-| Método | Ruta                 | JWT | Descripción                                           |
-|--------|----------------------|-----|-------------------------------------------------------|
-| POST   | `/games/manual`      | ✅   | Crear partida manual con configuración personalizada. |
-| POST   | `/games/matchmaking` | ✅   | Unirse automáticamente a una partida disponible.      |
+| Método | Ruta                 | JWT | Descripción                                                      |
+|--------|----------------------|-----|------------------------------------------------------------------|
+| POST   | `/games/manual`      | ✅   | Crea una partida personalizada con opciones configurables.       |
+| POST   | `/games/matchmaking` | ✅   | Busca y une al usuario a una partida disponible automáticamente. |
 
-## 📚 Flujos del Juego
+## 📚 Flujos del Juego Detallados
 
-### Flujo de conexión y acceso al juego
+### Creación y Unión a Partidas
 
-**1. Creación de una partida:**
+**1. Creación de una partida personalizada:**
 
-- Ingresa a la página principal y selecciona "Crear partida manual".
-- Configura las opciones de tu partida: número de jugadores (2-6), modo de juego (individual o equipos) y tamaño del
-  tablero.
-- Al confirmar, la partida quedará creada y tú serás el administrador (creador).
+- Desde la pantalla principal, selecciona "Crear partida manual" para iniciar el proceso.
+- Se abrirá un formulario con las siguientes opciones configurables:
+    - **Número de jugadores**: selecciona entre 2 y 6 participantes máximos.
+    - **Modo de juego**: elige entre "Individual" (todos contra todos) o "Equipos" (colaborativo).
+    - **Tamaño del tablero**: determina las dimensiones (10x10 por defecto).
+    - **Privacidad**: configura si la partida es pública o privada con contraseña.
+    - **Tiempo por turno**: ajusta la duración máxima de cada turno (30 segundos por defecto).
+- Al confirmar la configuración, el sistema crea la sala de espera y te asigna automáticamente como administrador.
+- La partida quedará visible en la lista pública (si no es privada) para que otros jugadores puedan unirse.
 
-**2. Unirse a una partida:**
+**2. Unirse a partidas existentes:**
 
-- Puedes unirte a una partida existente desde la lista disponible en la pantalla principal.
-- También puedes usar "Unión automática" para que el sistema te encuentre una partida disponible.
-- Al unirte, serás recibido en la sala de espera donde podrás ver a los demás jugadores.
+- **Desde la lista de partidas**: visualiza todas las partidas públicas disponibles con sus detalles (jugadores
+  actuales, modo, estado). Selecciona una y haz clic en "Unirse".
+- **Mediante código**: introduce el código único de la partida en la opción "Unirse con código" para acceder
+  directamente.
+- **Emparejamiento automático**: usa "Unión rápida" para que el sistema te asigne automáticamente a una partida
+  compatible con tus preferencias.
+- **Partidas privadas**: introduce la contraseña requerida cuando te unas a una partida protegida.
 
-**3. Preparación en la sala de espera:**
+**3. Sala de espera y preparación:**
 
-- Todos los jugadores deben marcar la casilla "Estoy listo" para que la partida pueda comenzar.
-- Si estás en modo equipos, podrás seleccionar a qué equipo quieres unirte.
-- El creador de la sala es el único que puede iniciar la partida cuando todos están listos.
+- Una vez dentro de la sala, verás el panel de jugadores con todos los participantes actuales.
+- **Estado de preparación**: marca la casilla "Estoy listo" cuando hayas terminado de revisar la configuración.
+- **Chat de sala**: comunícate con otros jugadores mientras esperan que la partida comience.
+- **Selección de equipo**: si el modo es "Por equipos", selecciona a cuál quieres unirte desde el panel lateral.
+- **Información de la partida**: visualiza los detalles completos de la configuración en la parte superior.
+- **Contador de jugadores**: muestra cuántos participantes faltan para alcanzar el mínimo necesario.
 
-**4. Transferencia de administración:**
+**4. Gestión de la sala (para el creador):**
 
-- Si eres el creador de la sala y necesitas salir, puedes transferir el control a otro jugador.
-- Solo selecciona "Transferir administración" y elige al jugador que tomará tu lugar.
-- El nuevo administrador tendrá todos los permisos para iniciar la partida o realizar ajustes.
+- Como administrador/creador puedes:
+    - **Iniciar la partida**: cuando todos los jugadores estén listos y se cumpla el mínimo requerido.
+    - **Ajustar configuración**: modificar parámetros antes de iniciar (modo, tamaño, etc.).
+    - **Expulsar jugadores**: eliminar participantes problemáticos de la sala.
+    - **Transferir administración**: ceder el control a otro jugador si necesitas salir.
+    - **Cancelar la partida**: disolver la sala completamente si es necesario.
 
-### Flujo de juego y sistema de turnos
+**5. Transferencia de control:**
 
-**1. Inicio de la partida:**
+- Si como creador necesitas salir, usa "Transferir administración" desde el menú de opciones.
+- Selecciona al jugador destinatario de los permisos de administrador en la lista desplegable.
+- Confirma la transferencia y el sistema notificará a todos los participantes del cambio.
+- El nuevo administrador recibirá todas las herramientas y permisos para gestionar la sala.
 
-- Cuando el administrador inicia la partida, el sistema distribuye aleatoriamente los barcos para todos los jugadores.
-- El primer turno se asigna también de forma aleatoria a uno de los participantes.
-- Cada jugador puede ver sus propios barcos y, en modo equipos, también los de sus compañeros.
+### Flotas y niveles de dificultad
 
-**2. Realización de disparos:**
+Cada participante recibe una flota de barcos distribuidos aleatoriamente en su tablero. La composición de la flota varía según el nivel de dificultad seleccionado:
 
-- Durante tu turno, tienes 30 segundos para seleccionar una casilla del tablero y disparar.
-- Puedes elegir entre disparos normales (una casilla) o, si lo has desbloqueado, disparos nucleares (área de 3x3).
-- Después de seleccionar la casilla, haz clic en "Disparar" para confirmar tu acción.
+#### Flota estándar (dificultad fácil)
+- 1 portaaviones (5 casillas)
+- 1 acorazado (4 casillas)
+- 1 crucero (3 casillas)
+- 2 destructores (2 casillas cada uno)
+- 2 submarinos (1 casilla cada uno)
 
-**3. Sistema de turnos con ventaja por acierto:**
+#### Flota intermedia (dificultad media)
+- 2 acorazados (4 casillas cada uno)
+- 2 cruceros (3 casillas cada uno)
+- 2 destructores (2 casillas cada uno)
+- 1 submarino (1 casilla)
 
-- Si tu disparo acierta en un barco enemigo, mantienes el turno y puedes disparar nuevamente.
-- Si fallas (el disparo cae en agua), el turno pasa automáticamente al siguiente jugador.
-- Esta mecánica permite realizar disparos consecutivos mientras sigas acertando, lo que puede dar una ventaja
-  estratégica importante.
+#### Flota avanzada (dificultad difícil)
+- 1 acorazado (4 casillas)
+- 1 crucero (3 casillas)
+- 2 destructores (2 casillas cada uno)
+- 1 submarino (1 casilla)
+
+La dificultad aumenta no solo por el número y tamaño de los barcos, sino también por la reducción total de casillas ocupadas, lo que hace más desafiante encontrar los barcos enemigos en el tablero.
+
+### Mecánicas de Juego y Sistema de Turnos
+
+**1. Inicialización de la partida:**
+
+- Cuando el administrador inicia la partida, ocurre la siguiente secuencia:
+    - El sistema genera un tablero para cada jugador con dimensiones según la configuración.
+    - Se distribuyen los diferentes tipos de barcos para cada participante.
+    - Los barcos se colocan automáticamente en posiciones aleatorias (horizontal o vertical).
+    - Se selecciona aleatoriamente al primer jugador para comenzar la ronda de turnos.
+    - Cada jugador visualiza su propio tablero con sus barcos y un tablero de disparo para cada oponente.
+    - En modo equipos, también puedes ver la disposición de barcos de tus aliados.
+
+**2. Sistema de turnos y tiempo:**
+
+- El jugador activo recibe una notificación visual destacada cuando es su turno.
+- Se inicia un temporizador visible de 30 segundos para realizar la acción.
+- Durante este tiempo, el jugador debe seleccionar coordenadas y confirmar su disparo.
+- **Advertencias automáticas** a los 10 y 5 segundos restantes.
+- Si el tiempo se agota sin acción, se considera turno perdido y pasa al siguiente jugador.
+- Tres turnos perdidos consecutivos resultan en la expulsión automática por inactividad.
+
+**3. Mecánica de disparos:**
+
+- Para realizar un disparo:
+    - Selecciona el tablero del oponente objetivo (en modo individual o por equipos).
+    - Elige las coordenadas exactas haciendo clic en la celda deseada.
+    - Confirma la acción con el botón "Disparar" para ejecutar el ataque.
+    - El sistema procesa el disparo y muestra el resultado a todos los jugadores.
+
+- **Resultados posibles:**
+    - **Agua**: el disparo no impacta ningún barco (se marca como círculo azul).
+    - **Impacto**: el disparo golpea parte de un barco (se marca como X roja).
+    - **Hundido**: el disparo completa la destrucción de un barco entero (se destacan todas sus casillas).
+
+- **Sistema de turnos:**
+    - Al finalizar un disparo, el turno pasa al siguiente jugador, independientemente del resultado.
+    - Este flujo mantiene un ritmo dinámico de juego, donde cada jugador debe planificar cuidadosamente su único disparo
+      por turno.
 
 **4. Sistema de arma nuclear:**
 
-- Cuando aciertas 6 disparos normales consecutivos, desbloqueas el arma nuclear.
-- El arma nuclear te permite disparar a un área de 3x3 casillas de una sola vez.
-- Después de usar el arma nuclear, deberás volver a conseguir 6 aciertos para desbloquearla nuevamente.
-- Si fallas un disparo normal en cualquier momento, tu progreso hacia el arma nuclear se reinicia a cero.
+- **Desbloqueo progresivo:**
+    - Cada acierto consecutivo con disparos normales incrementa tu contador nuclear.
+    - Al alcanzar 6 impactos directos consecutivos, desbloqueas el arma nuclear.
+    - Un indicador visual muestra claramente tu progreso actual (0-6).
+    - Al desbloquear el arma, recibes una notificación destacada y cambia la interfaz de disparo.
 
-**5. Hundimiento de barcos:**
+- **Uso del arma nuclear:**
+    - Cuando está disponible, puedes cambiar al "Modo nuclear" desde la interfaz.
+    - Selecciona la coordenada central del área de impacto 3x3.
+    - Al confirmar, el disparo nuclear afecta simultáneamente 9 casillas (3x3).
+    - Cada casilla dentro del área se procesa individualmente (puede resultar en múltiples impactos).
+    - Después de usar el arma nuclear, el contador se reinicia y debes volver a acumular 6 aciertos.
+    - Si fallas un disparo normal en cualquier momento, tu progreso nuclear se reinicia a cero.
 
-- Un barco se hunde cuando todas sus partes han sido impactadas.
-- Cuando hundes un barco, recibirás una notificación especial y seguirás manteniendo el turno.
-- Si un jugador pierde todos sus barcos, es eliminado automáticamente de la partida.
+**5. Hundimiento de barcos y eliminación:**
 
-**6. Eliminación de jugadores:**
+- **Proceso de hundimiento:**
+    - Un barco se considera hundido cuando todas sus partes han sido impactadas.
+    - Al hundir un barco, se muestra una animación especial y se notifica a todos los jugadores.
+    - Se revelan todas las casillas del barco hundido, incluso las que no habían sido impactadas.
+    - Después de hundir un barco, el turno pasa al siguiente jugador.
 
-- Cuando se eliminan todos tus barcos, quedas fuera de la partida pero puedes permanecer como espectador.
-- Si un jugador no realiza su acción durante 3 turnos consecutivos, es expulsado por inactividad.
-- En modo equipos, tu equipo sigue en juego mientras al menos uno de los miembros tenga barcos.
+- **Eliminación de jugadores:**
+    - Cuando todos los barcos de un jugador son hundidos, queda eliminado de la partida.
+    - Se muestra una notificación global informando la eliminación.
+    - El jugador eliminado puede permanecer como espectador para observar el resto de la partida.
+    - En modo individual, el jugador ocupa automáticamente el último puesto disponible del ranking.
+    - En modo equipos, el equipo continúa activo mientras quede al menos un miembro con barcos.
 
-**7. Victória y fin del juego:**
+**6. Sistema de espectadores:**
 
-- En modo individual: gana el último jugador con barcos restantes.
-- En modo equipos: gana el último equipo con al menos un barco en juego.
-- Al finalizar la partida, se muestran estadísticas detalladas sobre disparos, aciertos y barcos hundidos.
+- Los espectadores pueden:
+    - Ver todos los tableros de los jugadores activos en tiempo real.
+    - Observar los disparos y resultados de cada acción.
+    - Participar en el chat general sin interferir en la partida.
+    - Recibir todas las notificaciones y estadísticas del progreso.
+    - Unirse en cualquier momento, incluso con la partida ya iniciada.
 
-### Reconexión y abandonos
+**7. Finalización de la partida:**
 
-**1. Reconexión automática:**
+- **Condiciones de victoria:**
+    - **Modo individual**: el último jugador con barcos a flote gana la partida.
+    - **Modo equipos**: el último equipo con al menos un miembro activo es el ganador.
 
-- Si pierdes la conexión durante una partida, puedes volver a entrar y el juego te reconectará automáticamente.
-- Tu posición, barcos y progreso se mantienen intactos al reconectar.
-- No perderás tu turno si te reconectas antes de que se agote el tiempo de espera.
+- **Pantalla de resultados:**
+    - Al finalizar la partida, el sistema genera estadísticas detalladas para cada jugador:
+        - **Disparos totales**: número total de disparos realizados
+        - **Disparos exitosos**: cantidad de disparos que impactaron barcos enemigos
+        - **Precisión**: porcentaje de aciertos (calculado con 2 decimales)
+        - **Barcos hundidos**: cantidad de barcos enemigos destruidos completamente
+        - **Estado final**: indicador de si el jugador ganó o fue eliminado
+        - **Turnos jugados**: número de veces que el jugador tuvo su turno
+        - **Barcos restantes**: número de barcos propios que quedaron sin hundir
+        - **Racha máxima**: mayor secuencia consecutiva de aciertos lograda
+        - **Análisis por tipo de disparo**: desglose de la cantidad de cada tipo de disparo utilizado
+    - Estas estadísticas se envían a todos los clientes mediante el evento `game:ended` para su visualización.
 
-**2. Abandono voluntario:**
+### Sistema de Reconexión y Gestión de Abandonos
 
-- Si decides abandonar una partida en curso, selecciona "Abandonar partida".
-- Al abandonar, no podrás volver a unirte a esa misma partida.
-- Si eras el creador, el sistema asignará automáticamente a otro jugador como administrador.
+**1. Mecanismo de reconexión automática:**
 
-**3. Partidas abandonadas:**
+- Si pierdes conexión durante una partida activa, el sistema:
+    - Mantiene tu sesión activa durante un período de gracia (2 minutos).
+    - Conserva intacto el estado de tu tablero, barcos y progreso.
+    - Al volver a conectarte, detecta automáticamente la partida pendiente.
+    - Te reincorpora exactamente en el mismo estado, sin perder información.
+    - Si era tu turno, el tiempo restante continúa desde donde se interrumpió.
+    - Recibes una notificación con resumen de los eventos ocurridos durante tu ausencia.
 
-- Si todos los jugadores abandonan una partida, esta se elimina automáticamente.
-- Las estadísticas de partidas abandonadas no se guardan en los registros de jugadores.
-- El sistema libera los recursos para optimizar el rendimiento del servidor.
+**2. Gestión de abandonos voluntarios:**
 
-### 🛥️ Eventos del Cliente ➜ Servidor
+- Para abandonar una partida en curso:
+    - Abre el menú de opciones y selecciona "Abandonar partida".
+    - Confirma la acción en el diálogo de verificación.
+    - El sistema te desvincula completamente de la partida.
+    - No podrás volver a unirte a esa misma sesión de juego.
+    - En modo individual, automáticamente ocupas la última posición disponible.
+    - En modo equipos, tus barcos restantes quedan inactivos (no pueden ser controlados).
 
-| Evento              | Payload                      | Descripción                                     |
-|---------------------|------------------------------|-------------------------------------------------|
-| `player:join`       | `{ gameId, role? }`          | Unirse a una partida como jugador o espectador. |
-| `player:ready`      | `{ gameId }`                 | Marcar al jugador como listo.                   |
-| `player:chooseTeam` | `{ gameId, team }`           | Elegir equipo (modo por equipos).               |
-| `player:leave`      | `{ gameId }`                 | Abandonar la partida.                           |
-| `creator:transfer`  | `{ gameId, targetUserId }`   | Transferir la propiedad de creador de sala.     |
-| `game:start`        | `{ gameId }`                 | Solicitar el inicio de la partida.              |
-| `player:fire`       | `{ gameId, x, y, shotType }` | Ejecutar un disparo en una celda específica.    |
+**3. Reasignación de creador:**
 
-### 🛥️ Eventos del Servidor ➜ Cliente
+- Si el creador/administrador abandona la partida:
+    - El sistema identifica automáticamente al siguiente jugador por orden de entrada.
+    - Le asigna todos los privilegios y herramientas de administración.
+    - Notifica a todos los participantes del cambio de administrador.
+    - La partida continúa sin interrupciones con el nuevo líder.
+    - Si el abandono ocurre en la sala de espera, el nuevo creador puede modificar configuraciones.
+
+**4. Cierre automático de partidas:**
+
+- Una partida se cierra automáticamente cuando:
+    - Todos los jugadores han abandonado la sesión.
+    - La partida ha permanecido inactiva más de 10 minutos.
+    - Se produce un error crítico que impide su continuación.
+    - El sistema notifica a cualquier participante que intente reconectarse que la partida ya no existe.
+    - Se liberan todos los recursos asociados para optimizar el rendimiento del servidor.
+
+## 🌐 Sistema de Comunicación en Tiempo Real
+
+### 🛥️ Eventos del Cliente → Servidor
+
+| Evento              | Payload                      | Descripción                                            |
+|---------------------|------------------------------|--------------------------------------------------------|
+| `player:join`       | `{ gameId, role? }`          | Solicitud para unirse como jugador o espectador.       |
+| `player:ready`      | `{ gameId }`                 | Marcar al jugador como preparado para iniciar.         |
+| `player:chooseTeam` | `{ gameId, team }`           | Selección de equipo en el modo correspondiente.        |
+| `player:leave`      | `{ gameId }`                 | Notificación de abandono voluntario de la partida.     |
+| `creator:transfer`  | `{ gameId, targetUserId }`   | Transferencia del rol de administrador a otro jugador. |
+| `game:start`        | `{ gameId }`                 | Solicitud del administrador para iniciar la partida.   |
+| `player:fire`       | `{ gameId, x, y, shotType }` | Ejecución de un disparo en coordenadas específicas.    |
+
+### 🛥️ Eventos del Servidor → Cliente
 
 #### Gestión de Sala y Conexiones
 
 | Evento                 | Payload                                                  | Descripción                                      |
 |------------------------|----------------------------------------------------------|--------------------------------------------------|
-| `player:joined`        | `{ socketId }`                                           | Un jugador se ha unido a la sala.                |
-| `player:joined:ack`    | `{ success, room?, createdById?, reconnected?, error? }` | Confirmación de unión como jugador.              |
-| `spectator:joined:ack` | `{ success, room?, createdById?, reconnected?, error? }` | Confirmación de unión como espectador.           |
-| `join:denied`          | `{ reason }`                                             | Rechazo de unión a la partida.                   |
-| `player:left`          | `{ userId, nickname }`                                   | Un jugador ha salido de la partida.              |
-| `creator:changed`      | `{ newCreatorUserId, newCreatorNickname }`               | Se ha asignado un nuevo creador de partida.      |
-| `creator:transfer:ack` | `{ success, error? }`                                    | Confirmación de transferencia de rol de creador. |
+| `player:joined`        | `{ socketId }`                                           | Notificación de nuevo jugador unido a la sala.   |
+| `player:joined:ack`    | `{ success, room?, createdById?, reconnected?, error? }` | Confirmación de unión exitosa como jugador.      |
+| `spectator:joined:ack` | `{ success, room?, createdById?, reconnected?, error? }` | Confirmación de unión exitosa como espectador.   |
+| `join:denied`          | `{ reason }`                                             | Rechazo de solicitud de unión con motivo.        |
+| `player:left`          | `{ userId, nickname }`                                   | Notificación de salida de un jugador.            |
+| `creator:changed`      | `{ newCreatorUserId, newCreatorNickname }`               | Aviso de cambio de administrador de la partida.  |
+| `creator:transfer:ack` | `{ success, error? }`                                    | Confirmación de transferencia de administración. |
 
 #### Sistema de Turnos y Timeouts
 
 | Evento          | Payload      | Descripción                                            |
 |-----------------|--------------|--------------------------------------------------------|
-| `turn:changed`  | `{ userId }` | Turno asignado a un nuevo jugador.                     |
-| `turn:timeout`  | `{ userId }` | Jugador no disparó a tiempo (30 segundos).             |
-| `player:kicked` | `{ reason }` | Jugador expulsado por inactividad (3 turnos perdidos). |
+| `turn:changed`  | `{ userId }` | Notificación de cambio de turno al siguiente jugador.  |
+| `turn:timeout`  | `{ userId }` | Aviso de tiempo agotado sin acción del jugador actual. |
+| `player:kicked` | `{ reason }` | Notificación de expulsión por inactividad prolongada.  |
 
 #### Disparos y Combate
 
-| Evento              | Payload                              | Descripción                                        |
-|---------------------|--------------------------------------|----------------------------------------------------|
-| `player:fired`      | `{ shooterUserId, x, y, hit, sunk }` | Resultado de un disparo realizado.                 |
-| `player:fire:ack`   | `{ success, hit?, sunk?, error? }`   | Confirmación individual del disparo.               |
-| `player:eliminated` | `{ userId }`                         | Jugador eliminado por perder todos sus barcos.     |
-| `nuclear:status`    | `{ progress, hasNuclear, used }`     | Estado del arma nuclear (6 aciertos consecutivos). |
+| Evento              | Payload                              | Descripción                                          |
+|---------------------|--------------------------------------|------------------------------------------------------|
+| `player:fired`      | `{ shooterUserId, x, y, hit, sunk }` | Transmisión del resultado de un disparo a todos.     |
+| `player:fire:ack`   | `{ success, hit?, sunk?, error? }`   | Confirmación personal del resultado de tu disparo.   |
+| `player:eliminated` | `{ userId }`                         | Notificación de jugador eliminado por pérdida total. |
+| `nuclear:status`    | `{ progress, hasNuclear, used }`     | Actualización del estado del arma nuclear personal.  |
 
 #### Estado y Finalización
 
-| Evento           | Payload                                        | Descripción                                  |
-|------------------|------------------------------------------------|----------------------------------------------|
-| `game:started`   | `{ gameId }`                                   | La partida ha comenzado oficialmente.        |
-| `game:start:ack` | `{ success, error? }`                          | Confirmación de inicio de partida.           |
-| `game:ended`     | `{ mode, winnerUserId?, winningTeam?, stats }` | Fin de partida con ganadores y estadísticas. |
-| `game:abandoned` | `null`                                         | Partida eliminada por abandono total.        |
-| `board:update`   | `{ board: { size, ships, shots, myShips } }`   | Estado actualizado del tablero personal.     |
+| Evento           | Payload                                        | Descripción                                      |
+|------------------|------------------------------------------------|--------------------------------------------------|
+| `game:started`   | `{ gameId }`                                   | Aviso de inicio oficial de la partida a todos.   |
+| `game:start:ack` | `{ success, error? }`                          | Confirmación personal de inicio exitoso.         |
+| `game:ended`     | `{ mode, winnerUserId?, winningTeam?, stats }` | Notificación de fin con resultados completos.    |
+| `game:abandoned` | `null`                                         | Aviso de partida cancelada por abandono general. |
+| `board:update`   | `{ board: { size, ships, shots, myShips } }`   | Actualización del estado actual de tu tablero.   |
 
 #### Preparación y Sincronización
 
-| Evento                | Payload                | Descripción                                    |
-|-----------------------|------------------------|------------------------------------------------|
-| `player:ready`        | `{ socketId }`         | Jugador marcado como listo.                    |
-| `player:ready:ack`    | `{ success }`          | Confirmación de estado listo.                  |
-| `player:ready:notify` | `{ socketId }`         | Notificación de jugador marcado como listo.    |
-| `all:ready`           | `null`                 | Todos los jugadores están listos.              |
-| `player:teamAssigned` | `{ socketId, team }`   | Equipo asignado a un jugador.                  |
-| `player:reconnected`  | `{ userId, nickname }` | Jugador reconectado exitosamente.              |
-| `reconnect:ack`       | `{ success }`          | Confirmación de reconexión.                    |
-| `reconnect:failed`    | `{ reason }`           | Error en la reconexión.                        |
-| `error`               | `{ message, code? }`   | Error general en operación solicitada.         |
-| `heartbeat`           | `null`                 | Señal de latido para mantener conexión activa. |
+| Evento                | Payload                | Descripción                                         |
+|-----------------------|------------------------|-----------------------------------------------------|
+| `player:ready`        | `{ socketId }`         | Aviso de jugador marcado como listo.                |
+| `player:ready:ack`    | `{ success }`          | Confirmación personal de estado listo registrado.   |
+| `player:ready:notify` | `{ socketId }`         | Notificación global de jugador preparado.           |
+| `all:ready`           | `null`                 | Aviso de que todos los participantes están listos.  |
+| `player:teamAssigned` | `{ socketId, team }`   | Confirmación de asignación exitosa de equipo.       |
+| `player:reconnected`  | `{ userId, nickname }` | Notificación de jugador que ha vuelto a conectarse. |
+| `reconnect:ack`       | `{ success }`          | Confirmación personal de reconexión exitosa.        |
+| `reconnect:failed`    | `{ reason }`           | Aviso de fallo en intento de reconexión.            |
+| `error`               | `{ message, code? }`   | Notificación de error en operación solicitada.      |
+| `heartbeat`           | `null`                 | Señal periódica para verificar conexión activa.     |
 
 ## 🧪 Instalación y ejecución local
 
@@ -241,3 +362,15 @@ npx prisma migrate dev
 # Iniciar servidor en modo desarrollo
 npm run start:dev
 ```
+
+## 🔜 Próximas funcionalidades
+
+- **Sistema de chat integrado** para comunicación durante la partida
+- **Personalización de barcos** con diferentes habilidades especiales
+- **Modo torneo** para competiciones organizadas
+- **Sistema de logros** con recompensas desbloqueables
+- **Panel de estadísticas globales** para seguimiento de progreso
+
+---
+
+**Navark Core** - ¡La batalla naval definitiva!
