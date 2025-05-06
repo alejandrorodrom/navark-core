@@ -12,13 +12,7 @@ export type ShotTarget = {
   col: number;
 };
 
-export type ShotType =
-  | 'simple'
-  | 'cross'
-  | 'multi'
-  | 'area'
-  | 'scan'
-  | 'nuclear';
+export type ShotType = 'simple' | 'cross' | 'multi' | 'area' | 'nuclear';
 
 export type ShotResult = {
   hit: boolean;

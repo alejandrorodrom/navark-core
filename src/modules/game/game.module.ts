@@ -28,7 +28,7 @@ import { TurnOrchestratorService } from './infrastructure/services/game/turn/tur
 import { TurnTimeoutService } from './infrastructure/services/game/turn/turn-timeout.service';
 import { SocketServerAdapter } from './infrastructure/adapters/socket-server.adapter';
 import { BoardGenerationService } from './application/services/game-init/board-generation.service';
-import { ShotService } from './application/services/fire/shot.service';
+import { ShotService } from './infrastructure/services/game/fire/shot.service';
 import { GameStatsService } from './application/services/stats/game-stats.service';
 import { RedisStateModule } from './infrastructure/redis/redis-state.module';
 import { GameSocketMapRedisRepository } from './infrastructure/repository/redis/game-socket-map.redis.repository';

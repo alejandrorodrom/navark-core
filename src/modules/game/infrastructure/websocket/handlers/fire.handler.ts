@@ -4,7 +4,7 @@ import { TurnStateRedis } from '../../redis/turn-state.redis';
 import { NuclearStateRedis } from '../../redis/nuclear-state.redis';
 import { TurnTimeoutService } from '../../services/game/turn/turn-timeout.service';
 import { TurnOrchestratorService } from '../../services/game/turn/turn-orchestrator.service';
-import { ShotService } from '../../../application/services/fire/shot.service';
+import { ShotService } from '../../services/game/fire/shot.service';
 import { Shot, ShotType } from '../../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
