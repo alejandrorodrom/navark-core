@@ -119,10 +119,11 @@ export class FireHandler {
         this.logger.error(
           `Error crítico: Partida gameId=${gameId} sin tablero inicializado`,
         );
-        this.gameEventEmitter.emitPlayerFireAck(client.id, {
-          success: false,
-          error: 'Error interno: Tablero no encontrado.',
-        });
+        this.gameEventEmitter.emitError(
+          client.id,
+          'Error interno: Tablero no encontrado.',
+          'BOARD_NOT_FOUND',
+        );
         return;
       }
 
@@ -222,10 +223,11 @@ export class FireHandler {
         error,
       );
 
-      this.gameEventEmitter.emitPlayerFireAck(client.id, {
-        success: false,
-        error: 'Error interno al procesar el disparo.',
-      });
+      this.gameEventEmitter.emitError(
+        client.id,
+        'Error interno al procesar el disparo.',
+        'FIRE_PROCESSING_ERROR',
+      );
     }
   }
 
@@ -366,12 +368,13 @@ export class FireHandler {
         this.nuclearStateRedis.hasNuclearUsed(gameId, client.data.userId),
       ]);
 
-      // Enviar estado nuclear actualizado al jugador
-      this.gameEventEmitter.emit(client.id, GameEvents.NUCLEAR_STATUS, {
+      // Enviar estado nuclear actualizado al jugador usando el método especializado
+      this.gameEventEmitter.emitNuclearStatus(
+        gameId,
         progress,
-        hasNuclear: available,
+        available,
         used,
-      });
+      );
 
       this.logger.debug(
         `Estado nuclear enviado: gameId=${gameId}, userId=${client.data.userId}, ` +
@@ -380,6 +383,12 @@ export class FireHandler {
     } catch (error) {
       this.logger.error(
         `Error al enviar estado nuclear: gameId=${gameId}, userId=${client.data.userId}, error=${error}`,
+      );
+
+      this.gameEventEmitter.emitError(
+        client.id,
+        'Error al actualizar estado nuclear',
+        'NUCLEAR_STATUS_ERROR',
       );
     }
   }
