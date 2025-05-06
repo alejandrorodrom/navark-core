@@ -90,7 +90,7 @@ export class LeaveHandler {
 
         // Expulsar a cualquier jugador restante (por si acaso)
         for (const socketId of remainingSocketIds) {
-          this.socketServerAdapter.kickPlayerBySocketId(
+          this.gameEventEmitter.emitPlayerKicked(
             socketId,
             'Partida abandonada',
           );
