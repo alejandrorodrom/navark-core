@@ -1,38 +1,40 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SocketServerAdapter } from '../../../adapters/socket-server.adapter';
-import { Adapter } from 'socket.io-adapter';
+import { GameEventEmitter } from '../../../websocket/events/emitters/game-event.emitter';
 
 @Injectable()
 export class LobbyManagerService {
   private readonly logger = new Logger(LobbyManagerService.name);
 
-  constructor(private readonly webSocketServerService: SocketServerAdapter) {}
+  constructor(
+    private readonly socketServer: SocketServerAdapter,
+    private readonly gameEventEmitter: GameEventEmitter,
+  ) {}
 
-  getSocketsInRoom(room: string) {
-    const server = this.webSocketServerService.getServer();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const adapter = server.adapter as unknown as Adapter;
-    return adapter.rooms.get(room) ?? new Set<string>();
-  }
+  /**
+   * Expulsa todos los jugadores y espectadores de una sala de juego
+   * @param gameId Identificador de la partida
+   */
+  async kickPlayersFromRoom(gameId: number): Promise<void> {
+    const socketIds = this.socketServer.getSocketsInGame(gameId);
 
-  async kickPlayersFromRoom(
-    gameId: number,
-    reason: 'ended' | 'abandoned' = 'ended',
-  ): Promise<void> {
-    const server = this.webSocketServerService.getServer();
-    const room = `game:${gameId}`;
-    const socketsInRoom = this.getSocketsInRoom(room);
+    if (socketIds.length === 0) {
+      this.logger.log(
+        `No hay jugadores en la sala game:${gameId} para expulsar`,
+      );
+      return;
+    }
 
-    for (const socketId of socketsInRoom) {
-      const socket = server.sockets.sockets.get(socketId);
-      if (socket) {
-        socket.emit('game:finished', { reason });
-        await socket.leave(room);
-      }
+    // Emitimos el evento de juego abandonado
+    this.gameEventEmitter.emitGameAbandoned(gameId);
+
+    // Hacemos que los sockets abandonen la sala usando el método proporcionado por SocketServerAdapter
+    for (const socketId of socketIds) {
+      await this.socketServer.leaveGameRoom(socketId, gameId);
     }
 
     this.logger.log(
-      `Todos los jugadores y espectadores fueron expulsados de la sala ${room}`,
+      `${socketIds.length} jugadores y espectadores fueron expulsados de la sala game:${gameId} por abandono`,
     );
   }
 }

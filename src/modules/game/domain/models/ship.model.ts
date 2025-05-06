@@ -17,3 +17,8 @@ export interface VisibleShip extends Pick<Ship, 'ownerId'> {
   color: string;
   positions: Pick<Position, 'row' | 'col'>[];
 }
+
+export interface MyShipState extends Pick<Ship, 'shipId' | 'isSunk'> {
+  impactedPositions: Pick<Position, 'row' | 'col'>[];
+  totalPositions: number;
+}

@@ -1,13 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LobbyManagerService } from '../../services/game/lobby/lobby-manager.service';
 import { RedisCleanerService } from '../../services/game/cleanup/redis-cleaner.service';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
+import { GameEvents } from '../events/constants/game-events.enum';
+import { GameEventEmitter } from '../events/emitters/game-event.emitter';
+import { EventPayload } from '../events/types/events-payload.type';
 
 /**
- * LeaveHandler maneja la lógica cuando un jugador abandona voluntariamente una partida,
- * incluyendo la limpieza si la partida queda vacía y la reasignación de creador si es necesario.
+ * Servicio especializado en gestionar la salida de jugadores de partidas en curso,
+ * implementando lógica para el manejo de escenarios como:
+ *
+ * - Notificación a otros participantes sobre la salida
+ * - Reasignación automática del rol de creador si el creador original abandona
+ * - Limpieza de recursos y eliminación de partidas que quedan vacías
+ * - Registro de actividades para auditoría y diagnóstico
+ *
+ * Este servicio garantiza la integridad de las partidas cuando los jugadores
+ * deciden abandonarlas voluntariamente o se desconectan.
  */
 @Injectable()
 export class LeaveHandler {
@@ -15,97 +25,126 @@ export class LeaveHandler {
 
   constructor(
     private readonly gameRepository: GameRepository,
-    private readonly gameUtils: LobbyManagerService,
+    private readonly socketServerAdapter: SocketServerAdapter,
     private readonly redisUtils: RedisCleanerService,
-    private readonly webSocketServerService: SocketServerAdapter,
+    private readonly gameEventEmitter: GameEventEmitter,
   ) {}
 
   /**
-   * Procesa la salida voluntaria de un jugador de una partida en curso.
-   * Si el creador abandona, transfiere el liderazgo automáticamente.
-   * Si la partida queda vacía, la elimina.
+   * Procesa la solicitud de un jugador para abandonar voluntariamente una partida.
    *
-   * @param client Cliente que abandona.
-   * @param data Contiene el ID de la partida (`gameId`).
+   * El método ejecuta un flujo completo que incluye:
+   * 1. Notificación a todos los participantes sobre la salida del jugador
+   * 2. Desvinculación del socket de la sala de juego
+   * 3. Verificación del estado de la partida tras la salida
+   * 4. Eliminación de partidas vacías y liberación de recursos
+   * 5. Reasignación automática del rol de creador si es necesario
+   *
+   * Este proceso es fundamental para mantener la continuidad del juego
+   * cuando algunos jugadores deciden retirarse mientras la partida sigue activa.
+   *
+   * @param client Socket del cliente que solicita abandonar la partida
+   * @param data Objeto con el ID de la partida que desea abandonar
+   * @returns Promesa que se resuelve cuando todo el proceso ha sido completado
    */
   async onPlayerLeave(
     client: SocketWithUser,
-    data: { gameId: number },
+    data: EventPayload<GameEvents.PLAYER_LEAVE>,
   ): Promise<void> {
-    const room = `game:${data.gameId}`;
-
-    this.logger.log(
-      `Jugador socketId=${client.id} (userId=${client.data.userId}) solicitó abandonar partida gameId=${data.gameId}`,
-    );
-
-    const server = this.webSocketServerService.getServer();
-
-    server.to(room).emit('player:left', {
-      userId: client.data.userId,
-      nickname: client.data.nickname,
-    });
-
-    await client.leave(room);
-
     const gameId = data.gameId;
-    const game = await this.gameRepository.findById(gameId);
+    const userId = client.data.userId;
+    const nickname = client.data.nickname || 'Jugador desconocido';
 
-    if (!game) {
-      this.logger.warn(
-        `No se encontró partida en base de datos al intentar abandonar: gameId=${gameId}`,
-      );
-      return;
-    }
-
-    const allSocketIds = this.gameUtils.getSocketsInRoom(room);
-
-    // Si la partida queda vacía
-    if (allSocketIds.size === 0) {
+    try {
       this.logger.log(
-        `La partida gameId=${gameId} quedó vacía tras la salida. Eliminando partida...`,
+        `Jugador socketId=${client.id} (userId=${userId}) solicitó abandonar partida gameId=${gameId}`,
       );
 
-      server.to(room).emit('game:abandoned');
-      await this.gameUtils.kickPlayersFromRoom(gameId, 'abandoned');
+      // Notificar a todos los jugadores en la sala sobre la salida
+      this.gameEventEmitter.emit(gameId, GameEvents.PLAYER_LEFT, {
+        userId: userId,
+        nickname: nickname,
+      });
 
-      await this.gameRepository.removeAbandonedGames(gameId);
-      await this.redisUtils.clearGameRedisState(gameId);
+      // Desvincular al jugador de la sala de juego
+      await this.socketServerAdapter.leaveGameRoom(client.id, gameId);
 
-      this.logger.log(`Partida gameId=${gameId} eliminada exitosamente.`);
-      return;
-    }
+      const game = await this.gameRepository.findById(gameId);
 
-    // Si el jugador que se fue era el creador
-    if (game.createdById === client.data.userId) {
-      this.logger.warn(
-        `El creador abandonó la partida gameId=${gameId}. Buscando nuevo creador...`,
-      );
-
-      const fallbackSocketId = [...allSocketIds][0];
-      const fallbackSocket = server.sockets.sockets.get(
-        fallbackSocketId,
-      ) as SocketWithUser;
-
-      if (fallbackSocket?.data?.userId) {
-        await this.gameRepository.updateGameCreator(
-          gameId,
-          fallbackSocket.data.userId,
+      if (!game) {
+        this.logger.warn(
+          `No se encontró partida en base de datos al intentar abandonar: gameId=${gameId}`,
         );
-
-        server.to(room).emit('creator:changed', {
-          newCreatorUserId: fallbackSocket.data.userId,
-          newCreatorNickname:
-            fallbackSocket.data.nickname ?? 'Jugador desconocido',
-        });
-
-        this.logger.log(
-          `Nuevo creador asignado automáticamente: userId=${fallbackSocket.data.userId} para partida gameId=${gameId}`,
-        );
-      } else {
-        this.logger.error(
-          `No se encontró un socket válido para transferir liderazgo en gameId=${gameId}`,
-        );
+        return;
       }
+
+      // Obtener la lista de sockets que quedan en la sala
+      const remainingSocketIds =
+        this.socketServerAdapter.getSocketsInGame(gameId);
+
+      // Gestionar escenario donde la partida queda completamente vacía
+      if (remainingSocketIds.length === 0) {
+        this.logger.log(
+          `La partida gameId=${gameId} quedó vacía tras la salida. Eliminando partida...`,
+        );
+
+        // Notificar el abandono completo de la partida
+        this.gameEventEmitter.emitGameAbandoned(gameId);
+
+        // Expulsar a cualquier jugador restante (por si acaso)
+        for (const socketId of remainingSocketIds) {
+          this.socketServerAdapter.kickPlayerBySocketId(
+            socketId,
+            'Partida abandonada',
+          );
+        }
+
+        // Eliminar datos de la partida de la base de datos y caché
+        await this.gameRepository.removeAbandonedGames(gameId);
+        await this.redisUtils.clearGameRedisState(gameId);
+
+        this.logger.log(`Partida gameId=${gameId} eliminada exitosamente.`);
+        return;
+      }
+
+      // Gestionar escenario donde el creador abandona pero quedan otros jugadores
+      if (game.createdById === userId) {
+        this.logger.warn(
+          `El creador abandonó la partida gameId=${gameId}. Buscando nuevo creador...`,
+        );
+
+        // Seleccionar automáticamente al primer jugador disponible como nuevo creador
+        const fallbackSocketId = remainingSocketIds[0];
+        const fallbackUserData =
+          this.socketServerAdapter.getSocketUserData(fallbackSocketId);
+
+        if (fallbackUserData) {
+          // Actualizar creador en la base de datos
+          await this.gameRepository.updateGameCreator(
+            gameId,
+            fallbackUserData.userId,
+          );
+
+          // Notificar a todos sobre el cambio de creador
+          this.gameEventEmitter.emit(gameId, GameEvents.CREATOR_CHANGED, {
+            newCreatorUserId: fallbackUserData.userId,
+            newCreatorNickname: fallbackUserData.nickname,
+          });
+
+          this.logger.log(
+            `Nuevo creador asignado automáticamente: userId=${fallbackUserData.userId} para partida gameId=${gameId}`,
+          );
+        } else {
+          this.logger.error(
+            `No se encontró un socket válido para transferir liderazgo en gameId=${gameId}`,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error al procesar salida de jugador: gameId=${gameId}, userId=${userId}, error=${error.message}`,
+        error.stack,
+      );
     }
   }
 }

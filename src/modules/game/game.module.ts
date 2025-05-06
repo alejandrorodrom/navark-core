@@ -33,6 +33,7 @@ import { GameStatsService } from './application/services/stats/game-stats.servic
 import { RedisStateModule } from './infrastructure/redis/redis-state.module';
 import { GameSocketMapRedisRepository } from './infrastructure/repository/redis/game-socket-map.redis.repository';
 import { PlayerEliminationService } from './infrastructure/services/game/turn/player-elimination.service';
+import { GameEventEmitter } from './infrastructure/websocket/events/emitters/game-event.emitter';
 
 @Module({
   controllers: [GameController],
@@ -46,6 +47,7 @@ import { PlayerEliminationService } from './infrastructure/services/game/turn/pl
     GameGateway,
 
     SocketServerAdapter,
+    GameEventEmitter,
 
     ConnectionHandler,
     ReconnectHandler,

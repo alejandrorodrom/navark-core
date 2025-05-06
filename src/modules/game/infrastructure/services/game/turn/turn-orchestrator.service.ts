@@ -3,12 +3,17 @@ import { GameRepository } from '../../../../domain/repository/game.repository';
 import { PlayerRepository } from '../../../../domain/repository/player.repository';
 import { PlayerEliminationService } from './player-elimination.service';
 import { RedisCleanerService } from '../cleanup/redis-cleaner.service';
-import { SocketServerAdapter } from '../../../adapters/socket-server.adapter';
 import { GameStatsService } from '../../../../application/services/stats/game-stats.service';
 import { TurnLogicService } from '../../../../application/services/turn/turn-logic.service';
+import { GameEventEmitter } from '../../../websocket/events/emitters/game-event.emitter';
 
+/**
+ * Servicio orquestador del sistema de turnos en las partidas.
+ * Coordina el flujo de turnos, eliminación de jugadores y finalización del juego.
+ */
 @Injectable()
 export class TurnOrchestratorService {
+  /** Logger específico para el orquestador de turnos */
   private readonly logger = new Logger(TurnOrchestratorService.name);
 
   constructor(
@@ -17,17 +22,29 @@ export class TurnOrchestratorService {
     private readonly gameStatsService: GameStatsService,
     private readonly playerEliminationService: PlayerEliminationService,
     private readonly redisCleaner: RedisCleanerService,
-    private readonly socketServer: SocketServerAdapter,
+    private readonly gameEventEmitter: GameEventEmitter,
   ) {}
 
+  /**
+   * Gestiona el avance del turno al siguiente jugador, verificando posibles eliminaciones
+   * y comprobando las condiciones de finalización del juego.
+   * @param gameId Identificador de la partida
+   * @param currentUserId ID del usuario que termina su turno
+   */
   async passTurn(gameId: number, currentUserId: number): Promise<void> {
     const game = await this.gameRepository.findByIdWithPlayers(gameId);
-    if (!game || !game.board) return;
+    if (!game || !game.board) {
+      this.logger.warn(`Juego no encontrado o sin tablero: gameId=${gameId}`);
+      return;
+    }
 
+    // Eliminar jugadores que han perdido todos sus barcos
     const eliminatedUserIds =
       await this.playerEliminationService.eliminateDefeatedPlayers(game);
+
+    // Notificar jugadores eliminados
     for (const userId of eliminatedUserIds) {
-      this.socketServer.emitToGame(gameId, 'player:eliminated', { userId });
+      this.gameEventEmitter.emitPlayerEliminated(gameId, userId);
       this.logger.log(
         `Jugador userId=${userId} eliminado por perder todos sus barcos.`,
       );
@@ -38,7 +55,20 @@ export class TurnOrchestratorService {
     );
     const aliveUserIds = alivePlayers.map((p) => p.userId);
 
-    // Finalización en modo individual
+    // Si no quedan jugadores vivos, finalizar la partida como abandonada
+    if (aliveUserIds.length === 0) {
+      this.logger.warn(
+        `No quedan jugadores vivos en gameId=${gameId}. Finalizando partida.`,
+      );
+
+      await this.gameRepository.markGameAsFinished(gameId);
+      await this.redisCleaner.clearGameRedisState(gameId);
+
+      this.gameEventEmitter.emitGameAbandoned(gameId);
+      return;
+    }
+
+    // Verificar condición de victoria en modo individual
     if (
       TurnLogicService.isOnlyOnePlayerRemaining(aliveUserIds) &&
       game.mode === 'individual'
@@ -49,7 +79,7 @@ export class TurnOrchestratorService {
       await this.redisCleaner.clearGameRedisState(gameId);
 
       const stats = await this.gameStatsService.generateStats(gameId);
-      this.socketServer.emitToGame(gameId, 'game:ended', {
+      this.gameEventEmitter.emitGameEnded(gameId, {
         mode: 'individual',
         winnerUserId: winner.userId,
         stats,
@@ -61,7 +91,7 @@ export class TurnOrchestratorService {
       return;
     }
 
-    // Finalización por equipos
+    // Verificar condición de victoria en modo equipos
     if (game.mode === 'teams') {
       const winningTeam = TurnLogicService.getSingleAliveTeam(alivePlayers);
       if (winningTeam !== null) {
@@ -73,7 +103,7 @@ export class TurnOrchestratorService {
         await this.redisCleaner.clearGameRedisState(gameId);
 
         const stats = await this.gameStatsService.generateStats(gameId);
-        this.socketServer.emitToGame(gameId, 'game:ended', {
+        this.gameEventEmitter.emitGameEnded(gameId, {
           mode: 'teams',
           winningTeam,
           stats,
@@ -86,15 +116,13 @@ export class TurnOrchestratorService {
       }
     }
 
-    // Siguiente turno
+    // Pasar al siguiente turno si el juego continúa
     const nextUserId = TurnLogicService.getNextUserId(
       aliveUserIds,
       currentUserId,
     );
-    this.socketServer.emitToGame(gameId, 'turn:changed', {
-      userId: nextUserId,
-    });
 
+    this.gameEventEmitter.emitTurnChanged(gameId, nextUserId);
     this.logger.log(
       `Turno avanzado en gameId=${gameId}. Nuevo turno para userId=${nextUserId}`,
     );
