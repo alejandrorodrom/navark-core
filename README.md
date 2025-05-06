@@ -34,11 +34,11 @@ de responsabilidades.
 
 ## 📂 Estructura del proyecto
 
-| Carpeta                     | Propósito                                                                                    |
-|-----------------------------|----------------------------------------------------------------------------------------------|
-| `/application`              | Lógica de negocio: creación, disparos, control de turnos, reconexión.                        |
-| `/domain`                   | Modelos del dominio (, `Shot`, , etc.). `Board``Ship`                                        |
-| `/infrastructure`           | Adaptadores externos: Prisma, Redis, Gateway WebSocket.                                      |
+| Carpeta           | Propósito                                                             |
+|-------------------|-----------------------------------------------------------------------|
+| `/application`    | Lógica de negocio: creación, disparos, control de turnos, reconexión. |
+| `/domain`         | Modelos del dominio (`Board`, `Shot`, `Ship`, etc.).                  |
+| `/infrastructure` | Adaptadores externos: Prisma, Redis, Gateway WebSocket.               |
 
 ## 📆 Endpoints HTTP
 
@@ -59,26 +59,31 @@ de responsabilidades.
 | POST   | `/games/manual`      | ✅   | Crear partida manual con configuración personalizada. |
 | POST   | `/games/matchmaking` | ✅   | Unirse automáticamente a una partida disponible.      |
 
-## 📚 Manual de Jugador de Navark - Guía de Flujos del Juego
+## 📚 Flujos del Juego
 
 ### Flujo de conexión y acceso al juego
 
 **1. Creación de una partida:**
+
 - Ingresa a la página principal y selecciona "Crear partida manual".
-- Configura las opciones de tu partida: número de jugadores (2-6), modo de juego (individual o equipos) y tamaño del tablero.
+- Configura las opciones de tu partida: número de jugadores (2-6), modo de juego (individual o equipos) y tamaño del
+  tablero.
 - Al confirmar, la partida quedará creada y tú serás el administrador (creador).
 
 **2. Unirse a una partida:**
+
 - Puedes unirte a una partida existente desde la lista disponible en la pantalla principal.
 - También puedes usar "Unión automática" para que el sistema te encuentre una partida disponible.
 - Al unirte, serás recibido en la sala de espera donde podrás ver a los demás jugadores.
 
 **3. Preparación en la sala de espera:**
+
 - Todos los jugadores deben marcar la casilla "Estoy listo" para que la partida pueda comenzar.
 - Si estás en modo equipos, podrás seleccionar a qué equipo quieres unirte.
 - El creador de la sala es el único que puede iniciar la partida cuando todos están listos.
 
 **4. Transferencia de administración:**
+
 - Si eres el creador de la sala y necesitas salir, puedes transferir el control a otro jugador.
 - Solo selecciona "Transferir administración" y elige al jugador que tomará tu lugar.
 - El nuevo administrador tendrá todos los permisos para iniciar la partida o realizar ajustes.
@@ -86,37 +91,45 @@ de responsabilidades.
 ### Flujo de juego y sistema de turnos
 
 **1. Inicio de la partida:**
+
 - Cuando el administrador inicia la partida, el sistema distribuye aleatoriamente los barcos para todos los jugadores.
 - El primer turno se asigna también de forma aleatoria a uno de los participantes.
 - Cada jugador puede ver sus propios barcos y, en modo equipos, también los de sus compañeros.
 
 **2. Realización de disparos:**
+
 - Durante tu turno, tienes 30 segundos para seleccionar una casilla del tablero y disparar.
 - Puedes elegir entre disparos normales (una casilla) o, si lo has desbloqueado, disparos nucleares (área de 3x3).
 - Después de seleccionar la casilla, haz clic en "Disparar" para confirmar tu acción.
 
 **3. Sistema de turnos con ventaja por acierto:**
+
 - Si tu disparo acierta en un barco enemigo, mantienes el turno y puedes disparar nuevamente.
 - Si fallas (el disparo cae en agua), el turno pasa automáticamente al siguiente jugador.
-- Esta mecánica permite realizar disparos consecutivos mientras sigas acertando, lo que puede dar una ventaja estratégica importante.
+- Esta mecánica permite realizar disparos consecutivos mientras sigas acertando, lo que puede dar una ventaja
+  estratégica importante.
 
 **4. Sistema de arma nuclear:**
+
 - Cuando aciertas 6 disparos normales consecutivos, desbloqueas el arma nuclear.
 - El arma nuclear te permite disparar a un área de 3x3 casillas de una sola vez.
 - Después de usar el arma nuclear, deberás volver a conseguir 6 aciertos para desbloquearla nuevamente.
 - Si fallas un disparo normal en cualquier momento, tu progreso hacia el arma nuclear se reinicia a cero.
 
 **5. Hundimiento de barcos:**
+
 - Un barco se hunde cuando todas sus partes han sido impactadas.
 - Cuando hundes un barco, recibirás una notificación especial y seguirás manteniendo el turno.
 - Si un jugador pierde todos sus barcos, es eliminado automáticamente de la partida.
 
 **6. Eliminación de jugadores:**
+
 - Cuando se eliminan todos tus barcos, quedas fuera de la partida pero puedes permanecer como espectador.
 - Si un jugador no realiza su acción durante 3 turnos consecutivos, es expulsado por inactividad.
 - En modo equipos, tu equipo sigue en juego mientras al menos uno de los miembros tenga barcos.
 
 **7. Victória y fin del juego:**
+
 - En modo individual: gana el último jugador con barcos restantes.
 - En modo equipos: gana el último equipo con al menos un barco en juego.
 - Al finalizar la partida, se muestran estadísticas detalladas sobre disparos, aciertos y barcos hundidos.
@@ -124,16 +137,19 @@ de responsabilidades.
 ### Reconexión y abandonos
 
 **1. Reconexión automática:**
+
 - Si pierdes la conexión durante una partida, puedes volver a entrar y el juego te reconectará automáticamente.
 - Tu posición, barcos y progreso se mantienen intactos al reconectar.
 - No perderás tu turno si te reconectas antes de que se agote el tiempo de espera.
 
 **2. Abandono voluntario:**
+
 - Si decides abandonar una partida en curso, selecciona "Abandonar partida".
 - Al abandonar, no podrás volver a unirte a esa misma partida.
 - Si eras el creador, el sistema asignará automáticamente a otro jugador como administrador.
 
 **3. Partidas abandonadas:**
+
 - Si todos los jugadores abandonan una partida, esta se elimina automáticamente.
 - Las estadísticas de partidas abandonadas no se guardan en los registros de jugadores.
 - El sistema libera los recursos para optimizar el rendimiento del servidor.
