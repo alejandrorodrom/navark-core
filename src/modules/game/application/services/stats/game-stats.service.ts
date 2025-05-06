@@ -41,7 +41,6 @@ export class GameStatsService {
         cross: 0,
         multi: 0,
         area: 0,
-        scan: 0,
         nuclear: 0,
       };
       for (const shot of playerShots) {
