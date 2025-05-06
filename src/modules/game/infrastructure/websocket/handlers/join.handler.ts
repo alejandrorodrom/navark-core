@@ -67,9 +67,10 @@ export class JoinHandler {
 
       // Validar que la partida exista
       if (!game) {
-        this.gameEventEmitter.emitToClient(client.id, GameEvents.JOIN_DENIED, {
-          reason: 'Partida no encontrada',
-        });
+        this.gameEventEmitter.emitJoinDenied(
+          client.id,
+          'Partida no encontrada',
+        );
         this.logger.warn(`Partida inexistente: gameId=${data.gameId}`);
         return;
       }
@@ -109,12 +110,9 @@ export class JoinHandler {
 
         // Validar que la partida permita nuevos jugadores
         if (game.status !== GameStatus.waiting) {
-          this.gameEventEmitter.emitToClient(
+          this.gameEventEmitter.emitJoinDenied(
             client.id,
-            GameEvents.JOIN_DENIED,
-            {
-              reason: 'Partida ya iniciada',
-            },
+            'Partida ya iniciada',
           );
           this.logger.warn(
             `Intento de unirse como jugador en partida iniciada.`,
@@ -124,13 +122,7 @@ export class JoinHandler {
 
         // Validar que la partida no esté llena
         if (game.gamePlayers.length >= game.maxPlayers) {
-          this.gameEventEmitter.emitToClient(
-            client.id,
-            GameEvents.JOIN_DENIED,
-            {
-              reason: 'Partida llena',
-            },
-          );
+          this.gameEventEmitter.emitJoinDenied(client.id, 'Partida llena');
           this.logger.warn(`Partida llena: gameId=${data.gameId}`);
           return;
         }
@@ -141,12 +133,9 @@ export class JoinHandler {
           client.data.userId,
         );
         if (isAbandoned) {
-          this.gameEventEmitter.emitToClient(
+          this.gameEventEmitter.emitJoinDenied(
             client.id,
-            GameEvents.JOIN_DENIED,
-            {
-              reason: 'Fuiste expulsado por abandono',
-            },
+            'Fuiste expulsado por abandono',
           );
           this.logger.warn(
             `Usuario ${client.data.userId} intentó reingresar después de abandono.`,
@@ -239,9 +228,10 @@ export class JoinHandler {
       }
     } catch (error) {
       this.logger.error(`Error procesando solicitud de unión: ${error}`);
-      this.gameEventEmitter.emitToClient(client.id, GameEvents.JOIN_DENIED, {
-        reason: 'Error interno al procesar la solicitud',
-      });
+      this.gameEventEmitter.emitJoinDenied(
+        client.id,
+        'Error interno al procesar la solicitud',
+      );
     }
   }
 
@@ -292,24 +282,12 @@ export class JoinHandler {
       }
 
       // Confirmar al cliente que se registró su estado "listo"
-      this.gameEventEmitter.emitToClient(
-        client.id,
-        GameEvents.PLAYER_READY_ACK,
-        {
-          success: true,
-        },
-      );
+      this.gameEventEmitter.emitPlayerReadyAck(client.id, true);
     } catch (error) {
       this.logger.error(
         `Error al procesar estado listo: gameId=${gameId}, userId=${client.data.userId}, error=${error}`,
       );
-      this.gameEventEmitter.emitToClient(
-        client.id,
-        GameEvents.PLAYER_READY_ACK,
-        {
-          success: false,
-        },
-      );
+      this.gameEventEmitter.emitPlayerReadyAck(client.id, false);
     }
   }
 
@@ -397,10 +375,7 @@ export class JoinHandler {
       await this.teamStateRedis.setPlayerTeam(gameId, client.id, team);
 
       // Notificar a todos los jugadores sobre la asignación de equipo
-      this.gameEventEmitter.emit(gameId, GameEvents.PLAYER_TEAM_ASSIGNED, {
-        socketId: client.id,
-        team,
-      });
+      this.gameEventEmitter.emitPlayerTeamAssigned(gameId, client.id, team);
 
       this.logger.log(
         `Jugador socketId=${client.id} asignado exitosamente al team=${team} en room=${room}`,
