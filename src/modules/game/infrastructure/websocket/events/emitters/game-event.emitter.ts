@@ -232,7 +232,7 @@ export class GameEventEmitter {
   emitCreatorChanged(
     gameId: number,
     newCreatorUserId: number,
-    newCreatorNickname: string
+    newCreatorNickname: string,
   ): void {
     this.emit(gameId, GameEvents.CREATOR_CHANGED, {
       newCreatorUserId,
@@ -243,8 +243,15 @@ export class GameEventEmitter {
   /**
    * Emite un evento de confirmación de transferencia de creador.
    */
-  emitCreatorTransferAck(socketId: string, success: boolean, error?: string): void {
-    this.emitToClient(socketId, GameEvents.CREATOR_TRANSFER_ACK, { success, error });
+  emitCreatorTransferAck(
+    socketId: string,
+    success: boolean,
+    error?: string,
+  ): void {
+    this.emitToClient(socketId, GameEvents.CREATOR_TRANSFER_ACK, {
+      success,
+      error,
+    });
   }
 
   /**
@@ -257,14 +264,27 @@ export class GameEventEmitter {
   /**
    * Emite un evento que notifica sobre el estado del arma nuclear.
    */
-  emitNuclearStatus(gameId: number, progress: number, hasNuclear: boolean, used: boolean): void {
-    this.emit(gameId, GameEvents.NUCLEAR_STATUS, { progress, hasNuclear, used });
+  emitNuclearStatus(
+    gameId: number,
+    progress: number,
+    hasNuclear: boolean,
+    used: boolean,
+  ): void {
+    this.emit(gameId, GameEvents.NUCLEAR_STATUS, {
+      progress,
+      hasNuclear,
+      used,
+    });
   }
 
   /**
    * Emite un evento que notifica que un jugador se ha reconectado.
    */
-  emitPlayerReconnected(gameId: number, userId: number, nickname: string): void {
+  emitPlayerReconnected(
+    gameId: number,
+    userId: number,
+    nickname: string,
+  ): void {
     this.emit(gameId, GameEvents.PLAYER_RECONNECTED, { userId, nickname });
   }
 

@@ -5,7 +5,6 @@ import { GameRepository } from '../../../domain/repository/game.repository';
 import { SpectatorRepository } from '../../../domain/repository/spectator.repository';
 import { GameSocketMapRedisRepository } from '../../repository/redis/game-socket-map.redis.repository';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
-import { GameEvents } from '../events/constants/game-events.enum';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 
 /**
@@ -63,12 +62,9 @@ export class ReconnectHandler {
 
       if (!previousMapping) {
         this.logger.warn(`No se encontró mapping previo para userId=${userId}`);
-        this.gameEventEmitter.emitToClient(
+        this.gameEventEmitter.emitReconnectFailed(
           client.id,
-          GameEvents.RECONNECT_FAILED,
-          {
-            reason: 'No estabas en una partida',
-          },
+          'No estabas en una partida',
         );
         return;
       }
@@ -82,12 +78,9 @@ export class ReconnectHandler {
         this.logger.warn(
           `Partida inexistente. No se puede reconectar. gameId=${gameId}`,
         );
-        this.gameEventEmitter.emitToClient(
+        this.gameEventEmitter.emitReconnectFailed(
           client.id,
-          GameEvents.RECONNECT_FAILED,
-          {
-            reason: 'Partida ya no existe',
-          },
+          'Partida ya no existe',
         );
         return;
       }
@@ -102,14 +95,11 @@ export class ReconnectHandler {
         this.logger.warn(
           `Reconexión rechazada: userId=${userId} no es jugador en gameId=${gameId}`,
         );
-        this.gameEventEmitter.emitToClient(
+        this.gameEventEmitter.emitReconnectFailed(
           client.id,
-          GameEvents.RECONNECT_FAILED,
-          {
-            reason: isSpectator
-              ? 'Eres espectador, no puedes reconectarte como jugador'
-              : 'No estás registrado en esta partida',
-          },
+          isSpectator
+            ? 'Eres espectador, no puedes reconectarte como jugador'
+            : 'No estás registrado en esta partida',
         );
         return;
       }
@@ -126,25 +116,17 @@ export class ReconnectHandler {
       await this.boardHandler.sendBoardUpdate(client, gameId);
 
       // Notificar al resto de la sala sobre la reconexión
-      this.gameEventEmitter.emit(gameId, GameEvents.PLAYER_RECONNECTED, {
-        userId: userId,
-        nickname: nickname,
-      });
+      this.gameEventEmitter.emitPlayerReconnected(gameId, userId, nickname);
 
       // Confirmar reconexión exitosa al cliente
-      this.gameEventEmitter.emitToClient(client.id, GameEvents.RECONNECT_ACK, {
-        success: true,
-      });
+      this.gameEventEmitter.emitReconnectAck(client.id, true);
     } catch (error) {
       this.logger.error(
         `Error en reconexión de jugador: userId=${userId}, error=${error}`,
       );
-      this.gameEventEmitter.emitToClient(
+      this.gameEventEmitter.emitReconnectFailed(
         client.id,
-        GameEvents.RECONNECT_FAILED,
-        {
-          reason: 'Error interno al procesar la reconexión',
-        },
+        'Error interno al procesar la reconexión',
       );
     }
   }
