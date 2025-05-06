@@ -193,11 +193,11 @@ export class BoardGenerationService {
   private getShipSizesForDifficulty(difficulty: Difficulty): number[] {
     switch (difficulty) {
       case 'easy':
-        return [5, 4, 4, 3, 3]; // Barcos más grandes son más fáciles de encontrar
+        return [5, 4, 3, 2, 2, 1, 1]; // Barcos más grandes son más fáciles de encontrar
       case 'medium':
-        return [4, 4, 3, 3, 2];
+        return [4, 4, 3, 3, 2, 2, 1];
       case 'hard':
-        return [3, 3, 2, 2]; // Barcos más pequeños son más difíciles de encontrar
+        return [4, 3, 2, 2, 1]; // Barcos más pequeños son más difíciles de encontrar
       default:
         this.logger.warn(
           `Dificultad no reconocida: Usando valores por defecto`,
