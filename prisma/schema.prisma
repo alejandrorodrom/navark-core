@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -25,14 +22,16 @@ model User {
   username  String   @unique
   isGuest   Boolean  @default(false)
   password  String?
-  nickname  String // ✅ Ya no es único
+  nickname  String
   color     String
   createdAt DateTime @default(now())
 
   gamePlayers  GamePlayer[]
   spectators   Spectator[]
   shots        Shot[]
-  createdGames Game[]       @relation("UserCreatedGames")
+  createdGames Game[]            @relation("UserCreatedGames")
+  playerStats  GamePlayerStats[]
+  globalStats  UserGlobalStats?
 }
 
 model Game {
@@ -56,14 +55,16 @@ model Game {
   gamePlayers GamePlayer[]
   spectators  Spectator[]
   shots       Shot[]
+  stats       GamePlayerStats[]
 }
 
 model GamePlayer {
-  id     Int  @id @default(autoincrement())
+  id     Int @id @default(autoincrement())
   userId Int
   gameId Int
-  user   User @relation(fields: [userId], references: [id])
-  game   Game @relation(fields: [gameId], references: [id])
+
+  user User @relation(fields: [userId], references: [id])
+  game Game @relation(fields: [gameId], references: [id])
 
   team     Int?
   isWinner Boolean   @default(false)
@@ -71,21 +72,63 @@ model GamePlayer {
 }
 
 model Spectator {
-  id     Int  @id @default(autoincrement())
-  game   Game @relation(fields: [gameId], references: [id])
+  id     Int @id @default(autoincrement())
   gameId Int
-  user   User @relation(fields: [userId], references: [id])
   userId Int
+
+  game Game @relation(fields: [gameId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Shot {
   id        Int      @id @default(autoincrement())
-  game      Game     @relation(fields: [gameId], references: [id])
   gameId    Int
-  shooter   User     @relation(fields: [shooterId], references: [id])
   shooterId Int
-  type      String // "normal", "bomb", "missile", etc.
-  target    Json // Ej: { x: 3, y: 5 } o lista de coordenadas
+  type      String
+  target    Json
   hit       Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  game    Game @relation(fields: [gameId], references: [id])
+  shooter User @relation(fields: [shooterId], references: [id])
+}
+
+model GamePlayerStats {
+  id              Int      @id @default(autoincrement())
+  gameId          Int
+  userId          Int
+  totalShots      Int      @default(0)
+  successfulShots Int      @default(0)
+  accuracy        Float    @default(0) // porcentaje entre 0 y 100
+  shipsSunk       Int      @default(0)
+  wasWinner       Boolean  @default(false)
+  turnsTaken      Int      @default(0)
+  shipsRemaining  Int      @default(0)
+  wasEliminated   Boolean  @default(false)
+  hitStreak       Int      @default(0)
+  lastShotWasHit  Boolean  @default(false)
+  shotsByType     Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([gameId, userId])
+}
+
+model UserGlobalStats {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @unique
+  gamesPlayed     Int       @default(0)
+  gamesWon        Int       @default(0)
+  totalShots      Int       @default(0)
+  successfulShots Int       @default(0)
+  accuracy        Float     @default(0)
+  shipsSunk       Int       @default(0)
+  totalTurnsTaken Int       @default(0)
+  maxHitStreak    Int       @default(0)
+  nuclearUsed     Int       @default(0)
+  lastGameAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id])
 }
