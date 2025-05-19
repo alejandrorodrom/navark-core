@@ -1,4 +1,10 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { StatsQueryService } from '../../application/services/stats-query.service';
 import {
   ApiTags,
@@ -6,9 +12,12 @@ import {
   ApiNotFoundResponse,
   ApiParam,
   ApiOperation,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { GamePlayerStatsDto } from '../../domain/dto/game-player-stats.dto';
 import { UserGlobalStatsDto } from '../../domain/dto/user-global-stats.dto';
+import { JwtAuthGuard } from '../../../auth/infrastructure/jwt/jwt-auth.guard';
+import { UserId } from '../../../../shared/decorators/user-id.decorator';
 
 /**
  * Controlador HTTP para exponer las estadísticas del juego.
@@ -53,6 +62,21 @@ export class StatsController {
   @ApiNotFoundResponse({ description: 'Estadísticas globales no encontradas' })
   async getUserGlobalStats(
     @Param('userId', ParseIntPipe) userId: number,
+  ): Promise<UserGlobalStatsDto | null> {
+    return this.statsQueryService.findUserGlobalStats(userId);
+  }
+
+  /**
+   * Retorna las estadísticas acumuladas del usuario autenticado.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('me/global')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Estadísticas del usuario autenticado' })
+  @ApiOkResponse({ type: UserGlobalStatsDto })
+  @ApiNotFoundResponse({ description: 'Estadísticas globales no encontradas' })
+  async getMyStats(
+    @UserId() userId: number,
   ): Promise<UserGlobalStatsDto | null> {
     return this.statsQueryService.findUserGlobalStats(userId);
   }

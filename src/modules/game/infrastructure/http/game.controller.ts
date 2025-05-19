@@ -2,7 +2,7 @@ import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { GameFacade } from '../../application/facade/game.facade';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt/jwt-auth.guard';
 import { CreateGameDto } from '../../domain/dto/create-game.dto';
-import { UserId } from '../../../auth/decorators/user-id.decorator';
+import { UserId } from '../../../../shared/decorators/user-id.decorator';
 import {
   ApiBearerAuth,
   ApiBody,
