@@ -1,6 +1,6 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { GameFacade } from '../../application/facade/game.facade';
-import { JwtAuthGuard } from '../../../auth/infrastructure/jwt/jwt-auth.guard';
+import { JwtAuthGuard } from '../../../../shared/jwt/jwt-auth.guard';
 import { CreateGameDto } from '../../domain/dto/create-game.dto';
 import { UserId } from '../../../../shared/decorators/user-id.decorator';
 import {
@@ -21,6 +21,7 @@ export class GameController {
 
   @UseGuards(JwtAuthGuard)
   @Post('manual')
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Crea una partida manual' })
   @ApiBody({ type: CreateGameDto })
   @ApiResponse({
@@ -42,6 +43,7 @@ export class GameController {
 
   @UseGuards(JwtAuthGuard)
   @Post('matchmaking')
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Unirse a una partida por matchmaking' })
   @ApiBody({ type: MatchmakingDto })
   @ApiResponse({ status: 201, type: GameResponseDto })

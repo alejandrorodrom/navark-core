@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CreateGuestService } from './application/services/create-guest.service';
-import { JwtProviderModule } from './infrastructure/jwt/jwt.module';
+import { JwtProviderModule } from '../../shared/jwt/jwt.module';
 import { UserModule } from '../user/user.module';
 import { IdentifyUserService } from './application/services/identify-user.service';
 import { RefreshTokenService } from './application/services/refresh-token.service';

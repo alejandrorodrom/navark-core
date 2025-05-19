@@ -17,9 +17,9 @@ import {
 } from '@nestjs/swagger';
 import { IdentifyUserService } from '../../application/services/identify-user.service';
 import { RefreshTokenService } from '../../application/services/refresh-token.service';
-import { JwtAuthGuard } from '../jwt/jwt-auth.guard';
+import { JwtAuthGuard } from '../../../../shared/jwt/jwt-auth.guard';
 import { GetProfileService } from '../../application/services/get-profile.service';
-import { AuthenticatedRequest } from '../jwt/jwt-request.interface';
+import { AuthenticatedRequest } from '../../../../shared/jwt/jwt-request.interface';
 import { UpdateProfileService } from '../../application/services/update-profile.service';
 import { AuthResponseDto } from '../../domain/dto/auth-response.dto';
 import { UserResponseDto } from '../../../user/domain/dto/user-response.dto';

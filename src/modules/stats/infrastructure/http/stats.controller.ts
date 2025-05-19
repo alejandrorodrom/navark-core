@@ -16,7 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { GamePlayerStatsDto } from '../../domain/dto/game-player-stats.dto';
 import { UserGlobalStatsDto } from '../../domain/dto/user-global-stats.dto';
-import { JwtAuthGuard } from '../../../auth/infrastructure/jwt/jwt-auth.guard';
+import { JwtAuthGuard } from '../../../../shared/jwt/jwt-auth.guard';
 import { UserId } from '../../../../shared/decorators/user-id.decorator';
 import { PlayerGameHistoryDto } from '../../domain/dto/player-game-history.dto';
 
@@ -72,7 +72,7 @@ export class StatsController {
    */
   @UseGuards(JwtAuthGuard)
   @Get('me/global')
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Estadísticas del usuario autenticado' })
   @ApiOkResponse({ type: UserGlobalStatsDto })
   @ApiNotFoundResponse({ description: 'Estadísticas globales no encontradas' })
@@ -84,7 +84,7 @@ export class StatsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me/games')
-  @ApiBearerAuth()
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Historial de partidas del usuario autenticado' })
   @ApiOkResponse({ type: [PlayerGameHistoryDto] })
   async getMyGameHistory(

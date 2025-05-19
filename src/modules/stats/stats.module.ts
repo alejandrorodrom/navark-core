@@ -8,8 +8,10 @@ import { StatsFacade } from './application/facade/stats.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StatsController } from './infrastructure/http/stats.controller';
 import { StatsQueryService } from './application/services/stats-query.service';
+import { JwtProviderModule } from '../../shared/jwt/jwt.module';
 
 @Module({
+  imports: [JwtProviderModule],
   controllers: [StatsController],
   providers: [
     PrismaService,
