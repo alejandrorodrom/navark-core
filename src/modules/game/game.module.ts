@@ -29,11 +29,11 @@ import { TurnTimeoutService } from './infrastructure/services/game/turn/turn-tim
 import { SocketServerAdapter } from './infrastructure/adapters/socket-server.adapter';
 import { BoardGenerationService } from './application/services/game-init/board-generation.service';
 import { ShotService } from './infrastructure/services/game/fire/shot.service';
-import { GameStatsService } from './application/services/stats/game-stats.service';
 import { RedisStateModule } from './infrastructure/redis/redis-state.module';
 import { GameSocketMapRedisRepository } from './infrastructure/repository/redis/game-socket-map.redis.repository';
 import { PlayerEliminationService } from './infrastructure/services/game/turn/player-elimination.service';
 import { GameEventEmitter } from './infrastructure/websocket/events/emitters/game-event.emitter';
+import { StatsModule } from '../stats/stats.module';
 
 @Module({
   controllers: [GameController],
@@ -67,7 +67,6 @@ import { GameEventEmitter } from './infrastructure/websocket/events/emitters/gam
 
     BoardGenerationService,
     ShotService,
-    GameStatsService,
 
     GameSocketMapRedisRepository,
     { provide: GameRepository, useClass: GamePrismaRepository },
@@ -75,6 +74,6 @@ import { GameEventEmitter } from './infrastructure/websocket/events/emitters/gam
     { provide: ShotRepository, useClass: ShotPrismaRepository },
     { provide: SpectatorRepository, useClass: SpectatorPrismaRepository },
   ],
-  imports: [RedisModule, RedisStateModule],
+  imports: [RedisModule, RedisStateModule, StatsModule],
 })
 export class GameModule {}

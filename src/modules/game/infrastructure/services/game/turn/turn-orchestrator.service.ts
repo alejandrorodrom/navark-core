@@ -3,9 +3,9 @@ import { GameRepository } from '../../../../domain/repository/game.repository';
 import { PlayerRepository } from '../../../../domain/repository/player.repository';
 import { PlayerEliminationService } from './player-elimination.service';
 import { RedisCleanerService } from '../cleanup/redis-cleaner.service';
-import { GameStatsService } from '../../../../application/services/stats/game-stats.service';
 import { TurnLogicService } from '../../../../application/services/turn/turn-logic.service';
 import { GameEventEmitter } from '../../../websocket/events/emitters/game-event.emitter';
+import { StatsFacade } from '../../../../../stats/application/facade/stats.facade';
 
 /**
  * Servicio orquestador del sistema de turnos en las partidas.
@@ -19,7 +19,7 @@ export class TurnOrchestratorService {
   constructor(
     private readonly gameRepository: GameRepository,
     private readonly playerRepository: PlayerRepository,
-    private readonly gameStatsService: GameStatsService,
+    private readonly statsFacade: StatsFacade,
     private readonly playerEliminationService: PlayerEliminationService,
     private readonly redisCleaner: RedisCleanerService,
     private readonly gameEventEmitter: GameEventEmitter,
@@ -78,11 +78,11 @@ export class TurnOrchestratorService {
       await this.gameRepository.markGameAsFinished(gameId);
       await this.redisCleaner.clearGameRedisState(gameId);
 
-      const stats = await this.gameStatsService.generateStats(gameId);
+      await this.statsFacade.generateAndStoreStats(game);
+
       this.gameEventEmitter.emitGameEnded(gameId, {
         mode: 'individual',
         winnerUserId: winner.userId,
-        stats,
       });
 
       this.logger.log(
@@ -102,11 +102,11 @@ export class TurnOrchestratorService {
         await this.gameRepository.markGameAsFinished(gameId);
         await this.redisCleaner.clearGameRedisState(gameId);
 
-        const stats = await this.gameStatsService.generateStats(gameId);
+        await this.statsFacade.generateAndStoreStats(game);
+
         this.gameEventEmitter.emitGameEnded(gameId, {
           mode: 'teams',
           winningTeam,
-          stats,
         });
 
         this.logger.log(

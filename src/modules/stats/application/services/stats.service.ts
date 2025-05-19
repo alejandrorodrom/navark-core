@@ -1,17 +1,33 @@
 import { Injectable } from '@nestjs/common';
-import { Shot, ShotType } from '../../../domain/models/shot.model';
-import { PlayerStats } from '../../../domain/models/stats.model';
-import { GameRepository } from '../../../domain/repository/game.repository';
-import { parseBoard } from '../../../infrastructure/mappers/board.mapper';
+import { Shot, ShotType } from '../../../game/domain/models/shot.model';
+import { PlayerStats } from '../../domain/models/stats.model';
+import { parseBoard } from '../../../game/infrastructure/mappers/board.mapper';
+import { GameWithPlayers } from '../../../../prisma/prisma.types';
 
+/**
+ * Servicio de lógica pura encargado de calcular estadísticas
+ * por jugador a partir del estado final de una partida.
+ *
+ * No tiene acceso a la base de datos ni depende de otros servicios,
+ * solo transforma el tablero final (`board`) y los jugadores
+ * en un arreglo de estadísticas individuales.
+ */
 @Injectable()
-export class GameStatsService {
-  constructor(private readonly gameRepository: GameRepository) {}
-
-  async generateStats(gameId: number) {
-    const game = await this.gameRepository.findByIdWithPlayers(gameId);
-
-    if (!game || !game.board) return [];
+export class StatsService {
+  /**
+   * Calcula las estadísticas de cada jugador a partir de los datos de la partida.
+   *
+   * Este método espera que el `board` ya esté completamente actualizado y
+   * que los `gamePlayers` contengan los campos `userId`, `isWinner` y `leftAt`.
+   *
+   * @param game Objeto de partida que incluye el `board` final y los jugadores.
+   * @returns Arreglo de estadísticas individuales (`PlayerStats[]`)
+   *
+   * @example
+   * const stats = statsService.generateStatsFromGame(game);
+   */
+  generateStatsFromGame(game: GameWithPlayers): PlayerStats[] {
+    if (!game.board) return [];
 
     const board = parseBoard(game.board);
     const playerStats = new Map<number, PlayerStats>();
@@ -68,7 +84,7 @@ export class GameStatsService {
     return Array.from(playerStats.values());
   }
 
-  private calculateMaxHitStreak(shots: Shot[]) {
+  private calculateMaxHitStreak(shots: Shot[]): number {
     let max = 0;
     let current = 0;
     for (const shot of shots) {

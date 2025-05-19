@@ -1,7 +1,6 @@
 import { GameEvents } from '../constants/game-events.enum';
 import { MyShipState, VisibleShip } from '../../../../domain/models/ship.model';
 import { VisualShot } from '../../../../domain/models/shot.model';
-import { PlayerStats } from '../../../../domain/models/stats.model';
 
 /**
  * Interfaz que define los payloads para todos los eventos del sistema.
@@ -135,7 +134,6 @@ export interface GameEventPayloads {
     mode: 'individual' | 'teams';
     winnerUserId?: number;
     winningTeam?: number;
-    stats: PlayerStats[];
   };
 
   [GameEvents.GAME_ABANDONED]: null;
