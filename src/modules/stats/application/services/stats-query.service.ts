@@ -4,6 +4,7 @@ import { GamePlayerStatsDto } from '../../domain/dto/game-player-stats.dto';
 import { UserGlobalStatsDto } from '../../domain/dto/user-global-stats.dto';
 import { UserGlobalStatsRepository } from '../../domain/repository/user-global-stats.repository';
 import { GamePlayerStatsRepository } from '../../domain/repository/game-player-stats.repository';
+import { PlayerGameHistoryDto } from '../../domain/dto/player-game-history.dto';
 
 /**
  * Servicio de solo lectura que expone estadísticas
@@ -46,7 +47,7 @@ export class StatsQueryService {
   async findUserGlobalStats(
     userId: number,
   ): Promise<UserGlobalStatsDto | null> {
-    const stats = await this.findUserGlobalStats(userId);
+    const stats = await this.globalStatsRepo.findByUserId(userId);
 
     if (!stats) return null;
 
@@ -63,5 +64,24 @@ export class StatsQueryService {
       nuclearUsed: stats.nuclearUsed,
       lastGameAt: stats.lastGameAt,
     };
+  }
+
+  async findGameHistoryByUserId(
+    userId: number,
+  ): Promise<PlayerGameHistoryDto[]> {
+    const stats = await this.gameStatsRepo.findByUserIdWithGame(userId);
+
+    return stats.map((s) => ({
+      gameId: s.gameId,
+      gameMode: s.game.mode,
+      playedAt: s.createdAt,
+
+      wasWinner: s.wasWinner,
+      totalShots: s.totalShots,
+      successfulShots: s.successfulShots,
+      accuracy: s.accuracy,
+      shipsSunk: s.shipsSunk,
+      hitStreak: s.hitStreak,
+    }));
   }
 }

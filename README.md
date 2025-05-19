@@ -52,12 +52,25 @@ modernas para ofrecer una experiencia en tiempo real fluida y robusta.
 | GET    | `/auth/me`       | ✅   | Obtiene los datos completos del usuario autenticado.   |
 | PATCH  | `/auth/me`       | ✅   | Actualiza la información del perfil del usuario.       |
 
+---
+
 ### 🎮 Gestión de Partidas (`/games`)
 
 | Método | Ruta                 | JWT | Descripción                                                      |
 |--------|----------------------|-----|------------------------------------------------------------------|
 | POST   | `/games/manual`      | ✅   | Crea una partida personalizada con opciones configurables.       |
 | POST   | `/games/matchmaking` | ✅   | Busca y une al usuario a una partida disponible automáticamente. |
+
+---
+
+### 📊 Estadísticas (`/stats`)
+
+| Método | Ruta                            | JWT | Descripción                                                                 |
+|--------|---------------------------------|-----|-----------------------------------------------------------------------------|
+| GET    | `/stats/games/{gameId}/players` | ✅   | Estadísticas individuales de todos los jugadores de una partida finalizada. |
+| GET    | `/stats/users/{userId}/global`  | ✅   | Estadísticas acumuladas públicas o privadas de un usuario.                  |
+| GET    | `/stats/me/global`              | ✅   | Estadísticas acumuladas del usuario autenticado.                            |
+| GET    | `/stats/me/games`               | ✅   | Historial de partidas del usuario autenticado con estadísticas por juego.   |
 
 ## 📚 Flujos del Juego Detallados
 
@@ -112,9 +125,11 @@ modernas para ofrecer una experiencia en tiempo real fluida y robusta.
 
 ### Flotas y niveles de dificultad
 
-Cada participante recibe una flota de barcos distribuidos aleatoriamente en su tablero. La composición de la flota varía según el nivel de dificultad seleccionado:
+Cada participante recibe una flota de barcos distribuidos aleatoriamente en su tablero. La composición de la flota varía
+según el nivel de dificultad seleccionado:
 
 #### Flota estándar (dificultad fácil)
+
 - 1 portaaviones (5 casillas)
 - 1 acorazado (4 casillas)
 - 1 crucero (3 casillas)
@@ -122,18 +137,21 @@ Cada participante recibe una flota de barcos distribuidos aleatoriamente en su t
 - 2 submarinos (1 casilla cada uno)
 
 #### Flota intermedia (dificultad media)
+
 - 2 acorazados (4 casillas cada uno)
 - 2 cruceros (3 casillas cada uno)
 - 2 destructores (2 casillas cada uno)
 - 1 submarino (1 casilla)
 
 #### Flota avanzada (dificultad difícil)
+
 - 1 acorazado (4 casillas)
 - 1 crucero (3 casillas)
 - 2 destructores (2 casillas cada uno)
 - 1 submarino (1 casilla)
 
-La dificultad aumenta no solo por el número y tamaño de los barcos, sino también por la reducción total de casillas ocupadas, lo que hace más desafiante encontrar los barcos enemigos en el tablero.
+La dificultad aumenta no solo por el número y tamaño de los barcos, sino también por la reducción total de casillas
+ocupadas, lo que hace más desafiante encontrar los barcos enemigos en el tablero.
 
 ### Mecánicas de Juego y Sistema de Turnos
 

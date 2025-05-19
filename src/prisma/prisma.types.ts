@@ -34,4 +34,8 @@ export type GamePlayerStatsWithUser = GamePlayerStats & {
   user: Pick<User, 'nickname'>;
 };
 
+export type GamePlayerStatsWithGame = GamePlayerStats & {
+  game: Pick<Game, 'id' | 'mode' | 'createdAt'>;
+};
+
 export type GamePlayerStatsCreateInput = Prisma.GamePlayerStatsCreateInput;

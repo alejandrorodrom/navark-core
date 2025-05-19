@@ -44,5 +44,5 @@ export class UserGlobalStatsDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  lastGameAt?: Date;
+  lastGameAt?: Date | null;
 }

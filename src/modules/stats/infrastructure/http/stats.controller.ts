@@ -18,6 +18,7 @@ import { GamePlayerStatsDto } from '../../domain/dto/game-player-stats.dto';
 import { UserGlobalStatsDto } from '../../domain/dto/user-global-stats.dto';
 import { JwtAuthGuard } from '../../../auth/infrastructure/jwt/jwt-auth.guard';
 import { UserId } from '../../../../shared/decorators/user-id.decorator';
+import { PlayerGameHistoryDto } from '../../domain/dto/player-game-history.dto';
 
 /**
  * Controlador HTTP para exponer las estadísticas del juego.
@@ -79,5 +80,16 @@ export class StatsController {
     @UserId() userId: number,
   ): Promise<UserGlobalStatsDto | null> {
     return this.statsQueryService.findUserGlobalStats(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me/games')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Historial de partidas del usuario autenticado' })
+  @ApiOkResponse({ type: [PlayerGameHistoryDto] })
+  async getMyGameHistory(
+    @UserId() userId: number,
+  ): Promise<PlayerGameHistoryDto[]> {
+    return this.statsQueryService.findGameHistoryByUserId(userId);
   }
 }

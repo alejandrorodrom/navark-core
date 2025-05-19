@@ -3,7 +3,10 @@ import { GamePlayerStatsRepository } from '../../../domain/repository/game-playe
 import { PrismaService } from '../../../../../prisma/prisma.service';
 import { PlayerStats } from '../../../domain/models/stats.model';
 import { mapPlayerStatsToPrismaInput } from '../../../application/mapper/player-stats.mapper';
-import { GamePlayerStatsWithUser } from '../../../../../prisma/prisma.types';
+import {
+  GamePlayerStatsWithGame,
+  GamePlayerStatsWithUser,
+} from '../../../../../prisma/prisma.types';
 
 /**
  * Implementación Prisma del repositorio para persistencia
@@ -19,6 +22,24 @@ export class GamePlayerStatsPrismaRepository
     return this.prisma.gamePlayerStats.findMany({
       where: { gameId },
       include: { user: { select: { nickname: true } } },
+    });
+  }
+
+  async findByUserIdWithGame(
+    userId: number,
+  ): Promise<GamePlayerStatsWithGame[]> {
+    return this.prisma.gamePlayerStats.findMany({
+      where: { userId },
+      include: {
+        game: {
+          select: {
+            id: true,
+            mode: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
