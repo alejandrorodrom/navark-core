@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { StatsService } from './application/services/stats.service';
+import { GeneratePlayerStatsUseCase } from './application/use-cases/generate-player-stats.use-case';
 import { GamePlayerStatsPrismaRepository } from './infrastructure/repository/prisma/game-player-stats.prisma.repository';
 import { GamePlayerStatsRepository } from './domain/repository/game-player-stats.repository';
 import { UserGlobalStatsPrismaRepository } from './infrastructure/repository/prisma/user-global-stats.prisma.repository';
@@ -7,7 +7,7 @@ import { UserGlobalStatsRepository } from './domain/repository/user-global-stats
 import { StatsFacade } from './application/facade/stats.facade';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StatsController } from './infrastructure/http/stats.controller';
-import { StatsQueryService } from './application/services/stats-query.service';
+import { GetUserStatsUseCase } from './application/use-cases/get-user-stats.use-case';
 import { JwtProviderModule } from '../../shared/jwt/jwt.module';
 
 @Module({
@@ -15,8 +15,8 @@ import { JwtProviderModule } from '../../shared/jwt/jwt.module';
   controllers: [StatsController],
   providers: [
     PrismaService,
-    StatsService,
-    StatsQueryService,
+    GeneratePlayerStatsUseCase,
+    GetUserStatsUseCase,
     StatsFacade,
     {
       provide: GamePlayerStatsRepository,

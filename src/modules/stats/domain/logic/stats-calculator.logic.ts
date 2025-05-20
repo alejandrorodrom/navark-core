@@ -1,30 +1,20 @@
-import { Injectable } from '@nestjs/common';
 import { Shot, ShotType } from '../../../game/domain/models/shot.model';
-import { PlayerStats } from '../../domain/models/stats.model';
+import { PlayerStats } from '../models/stats.model';
 import { parseBoard } from '../../../game/application/mapper/board.mapper';
 import { GameWithPlayers } from '../../../../prisma/prisma.types';
 
 /**
- * Servicio de lógica pura encargado de calcular estadísticas
- * por jugador a partir del estado final de una partida.
+ * Clase de lógica pura encargada de calcular estadísticas por jugador
+ * a partir del estado final de una partida.
  *
- * No tiene acceso a la base de datos ni depende de otros servicios,
- * solo transforma el tablero final (`board`) y los jugadores
- * en un arreglo de estadísticas individuales.
+ * No accede a la base de datos ni depende de servicios externos.
  */
-@Injectable()
-export class StatsService {
+export class StatsCalculatorLogic {
   /**
-   * Calcula las estadísticas de cada jugador a partir de los datos de la partida.
+   * Calcula las estadísticas de cada jugador usando el board final.
    *
-   * Este método espera que el `board` ya esté completamente actualizado y
-   * que los `gamePlayers` contengan los campos `userId`, `isWinner` y `leftAt`.
-   *
-   * @param game Objeto de partida que incluye el `board` final y los jugadores.
+   * @param game Partida completa con board serializado y jugadores
    * @returns Arreglo de estadísticas individuales (`PlayerStats[]`)
-   *
-   * @example
-   * const stats = statsService.generateStatsFromGame(game);
    */
   generateStatsFromGame(game: GameWithPlayers): PlayerStats[] {
     if (!game.board) return [];
@@ -84,9 +74,16 @@ export class StatsService {
     return Array.from(playerStats.values());
   }
 
+  /**
+   * Calcula la mayor cantidad de aciertos consecutivos (racha).
+   *
+   * @param shots Disparos realizados por el jugador.
+   * @returns Número máximo de aciertos consecutivos.
+   */
   private calculateMaxHitStreak(shots: Shot[]): number {
     let max = 0;
     let current = 0;
+
     for (const shot of shots) {
       if (shot.hit) {
         current += 1;
@@ -95,6 +92,7 @@ export class StatsService {
         current = 0;
       }
     }
+
     return max;
   }
 }

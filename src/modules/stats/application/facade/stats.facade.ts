@@ -1,40 +1,63 @@
 import { Injectable } from '@nestjs/common';
-import { StatsService } from '../services/stats.service';
-import { GamePlayerStatsRepository } from '../../domain/repository/game-player-stats.repository';
-import { UserGlobalStatsRepository } from '../../domain/repository/user-global-stats.repository';
 import { GameWithPlayers } from '../../../../prisma/prisma.types';
+import { GeneratePlayerStatsUseCase } from '../use-cases/generate-player-stats.use-case';
+import { GetUserStatsUseCase } from '../use-cases/get-user-stats.use-case';
+import { GamePlayerStatsDto } from '../../domain/dto/game-player-stats.dto';
+import { UserGlobalStatsDto } from '../../domain/dto/user-global-stats.dto';
+import { PlayerGameHistoryDto } from '../../domain/dto/player-game-history.dto';
 
 /**
  * Facade del módulo de estadísticas.
  *
- * Coordina el flujo completo al finalizar una partida:
- * - Cálculo de estadísticas individuales
- * - Guardado de estadísticas por jugador en la partida (`GamePlayerStats`)
- * - Actualización de estadísticas acumuladas por usuario (`UserGlobalStats`)
+ * Provee una interfaz única para acceder a:
+ * - Generación y persistencia de estadísticas tras una partida
+ * - Consultas de estadísticas acumuladas y por juego
  */
 @Injectable()
 export class StatsFacade {
   constructor(
-    private readonly statsService: StatsService,
-    private readonly gamePlayerStatsRepository: GamePlayerStatsRepository,
-    private readonly userGlobalStatsRepository: UserGlobalStatsRepository,
+    private readonly generateStats: GeneratePlayerStatsUseCase,
+    private readonly getStats: GetUserStatsUseCase,
   ) {}
 
   /**
-   * Calcula y persiste las estadísticas completas de una partida finalizada.
+   * Calcula y guarda todas las estadísticas relevantes al finalizar una partida.
    *
-   * Este método se debe llamar al finalizar una partida, ya que gestiona
-   * todo el ciclo de generación y persistencia de estadísticas.
-   *
-   * @param game Objeto de la partida (`GameWithPlayers`) que incluye el board final y los jugadores
+   * @param game Partida completa con board y jugadores
    */
   async generateAndStoreStats(game: GameWithPlayers): Promise<void> {
-    const stats = this.statsService.generateStatsFromGame(game);
+    await this.generateStats.generateAndStoreStats(game);
+  }
 
-    await this.gamePlayerStatsRepository.saveMany(game.id, stats);
+  /**
+   * Obtiene estadísticas de todos los jugadores que participaron en una partida.
+   *
+   * @param gameId ID de la partida
+   */
+  async findGamePlayerStats(gameId: number): Promise<GamePlayerStatsDto[]> {
+    return this.getStats.findGamePlayerStats(gameId);
+  }
 
-    for (const stat of stats) {
-      await this.userGlobalStatsRepository.upsertFromGameStats(stat);
-    }
+  /**
+   * Consulta estadísticas acumuladas de un usuario en todo su historial.
+   *
+   * @param userId ID del usuario
+   */
+  async findUserGlobalStats(
+    userId: number,
+  ): Promise<UserGlobalStatsDto | null> {
+    return this.getStats.findUserGlobalStats(userId);
+  }
+
+  /**
+   * Retorna el historial de partidas jugadas por un usuario,
+   * con sus estadísticas individuales por partida.
+   *
+   * @param userId ID del jugador
+   */
+  async findGameHistoryByUserId(
+    userId: number,
+  ): Promise<PlayerGameHistoryDto[]> {
+    return this.getStats.findGameHistoryByUserId(userId);
   }
 }
