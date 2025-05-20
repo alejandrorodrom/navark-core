@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Shot, ShotType } from '../../../game/domain/models/shot.model';
 import { PlayerStats } from '../../domain/models/stats.model';
-import { parseBoard } from '../../../game/infrastructure/mappers/board.mapper';
+import { parseBoard } from '../../../game/application/mapper/board.mapper';
 import { GameWithPlayers } from '../../../../prisma/prisma.types';
 
 /**

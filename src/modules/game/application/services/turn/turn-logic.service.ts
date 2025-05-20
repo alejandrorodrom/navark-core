@@ -1,33 +1,50 @@
 import { Board } from '../../../domain/models/board.model';
 import { GamePlayer } from '../../../../../prisma/prisma.types';
 
+/**
+ * Servicio de lógica pura para el manejo de turnos.
+ *
+ * Este servicio no tiene dependencias externas y agrupa funciones determinísticas como:
+ * - Determinar si un jugador tiene barcos vivos
+ * - Calcular el siguiente jugador en turno
+ * - Verificar condiciones de victoria en individual o equipos
+ */
 export class TurnLogicService {
   /**
-   * Verifica si un jugador tiene al menos un barco no hundido en el tablero.
+   * Verifica si un jugador tiene al menos un barco aún no hundido en el tablero.
    *
-   * @param board Tablero de juego.
+   * @param board Tablero actual de la partida.
    * @param userId ID del jugador a verificar.
-   * @returns true si tiene barcos vivos, false si no.
+   * @returns true si el jugador tiene al menos un barco activo.
    */
   static hasShipsAlive(board: Board, userId: number): boolean {
     return board.ships.some((ship) => ship.ownerId === userId && !ship.isSunk);
   }
 
   /**
-   * Devuelve el próximo ID de jugador activo basado en el orden actual.
+   * Determina el siguiente jugador activo en base a la lista actual de jugadores vivos.
    *
-   * @param aliveUserIds Lista de IDs de jugadores aún activos.
+   * La lista se trata como circular: si el jugador actual está al final,
+   * el siguiente será el primero.
+   *
+   * @param aliveUserIds Lista de IDs de jugadores vivos, en orden de turno.
    * @param currentUserId ID del jugador que acaba de jugar.
-   * @returns ID del siguiente jugador.
+   * @returns ID del siguiente jugador que debe tomar el turno.
    */
   static getNextUserId(aliveUserIds: number[], currentUserId: number): number {
     const idx = aliveUserIds.indexOf(currentUserId);
+
+    // Si por alguna razón no se encuentra el actual, se devuelve tal cual
     if (idx === -1 || aliveUserIds.length === 0) return currentUserId;
+
+    // Ciclo circular
     return aliveUserIds[(idx + 1) % aliveUserIds.length];
   }
 
   /**
-   * Verifica si solo queda un jugador activo.
+   * Indica si solo queda un jugador vivo en la partida.
+   *
+   * Esto se usa para detectar condiciones de victoria en modo individual.
    *
    * @param aliveUserIds Lista de IDs de jugadores aún activos.
    * @returns true si solo queda uno, false si hay más.
@@ -37,15 +54,19 @@ export class TurnLogicService {
   }
 
   /**
-   * Si solo hay un equipo con jugadores vivos, lo retorna. De lo contrario, retorna null.
+   * En modo equipos, determina si solo un equipo sigue en juego.
    *
-   * @param gamePlayers Lista completa de GamePlayers.
-   * @returns ID del equipo único vivo o null si hay más de uno.
+   * Recorre todos los jugadores y agrupa sus equipos activos. Si hay exactamente uno,
+   * significa que ese equipo ganó.
+   *
+   * @param gamePlayers Lista completa de GamePlayers (vivos y eliminados).
+   * @returns ID del equipo que queda vivo, o null si hay más de uno.
    */
   static getSingleAliveTeam(gamePlayers: GamePlayer[]): number | null {
     const aliveTeams = new Set<number>();
 
     for (const p of gamePlayers) {
+      // Filtra jugadores activos y con equipo asignado
       if (!p.leftAt && p.team !== null) {
         aliveTeams.add(p.team);
       }

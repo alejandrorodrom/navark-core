@@ -1,13 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TeamStateRedis } from '../../redis/team-state.redis';
 import { SocketWithUser } from '../../../domain/types/socket.types';
-import {
-  getFormattedShots,
-  getMyShipsState,
-  getVisibleShips,
-} from '../../../domain/utils/board.utils';
+import { BoardVisualizationService } from '../../../application/services/board/board-visualization.service';
 import { GameRepository } from '../../../domain/repository/game.repository';
-import { parseBoard } from '../../mappers/board.mapper';
+import { parseBoard } from '../../../application/mapper/board.mapper';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
 import { GameEvents } from '../events/constants/game-events.enum';
 import { EventPayload } from '../events/types/events-payload.type';
@@ -33,6 +29,7 @@ export class BoardHandler {
     private readonly gameRepository: GameRepository,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly gameEventEmitter: GameEventEmitter,
+    private readonly boardVisualizationService: BoardVisualizationService,
   ) {}
 
   /**
@@ -72,7 +69,7 @@ export class BoardHandler {
 
     // Filtrar barcos visibles para este jugador específico según las reglas del juego
     // (propios + equipo, pero no los de enemigos)
-    const ships = getVisibleShips(
+    const ships = this.boardVisualizationService.getVisibleShips(
       board.ships,
       client.data.userId,
       teams,
@@ -80,10 +77,15 @@ export class BoardHandler {
     );
 
     // Transformar todos los disparos realizados a formato visual para el cliente
-    const shots = getFormattedShots(board.shots || []);
+    const shots = this.boardVisualizationService.getFormattedShots(
+      board.shots || [],
+    );
 
     // Obtener estado detallado de daño de los barcos que pertenecen a este jugador
-    const myShips = getMyShipsState(board.ships, client.data.userId);
+    const myShips = this.boardVisualizationService.getMyShipsState(
+      board.ships,
+      client.data.userId,
+    );
 
     // Preparar el payload tipado para la respuesta
     const payload: EventPayload<GameEvents.BOARD_UPDATE> = {

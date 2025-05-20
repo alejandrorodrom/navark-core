@@ -9,11 +9,14 @@ import { StatsFacade } from '../../../../../stats/application/facade/stats.facad
 
 /**
  * Servicio orquestador del sistema de turnos en las partidas.
- * Coordina el flujo de turnos, eliminación de jugadores y finalización del juego.
+ *
+ * - Coordina eliminación de jugadores derrotados
+ * - Determina si hay un ganador (modo individual o equipos)
+ * - Finaliza la partida si corresponde
+ * - Emite eventos al frontend vía WebSocket
  */
 @Injectable()
 export class TurnOrchestratorService {
-  /** Logger específico para el orquestador de turnos */
   private readonly logger = new Logger(TurnOrchestratorService.name);
 
   constructor(
@@ -26,23 +29,25 @@ export class TurnOrchestratorService {
   ) {}
 
   /**
-   * Gestiona el avance del turno al siguiente jugador, verificando posibles eliminaciones
-   * y comprobando las condiciones de finalización del juego.
-   * @param gameId Identificador de la partida
-   * @param currentUserId ID del usuario que termina su turno
+   * Avanza el turno al siguiente jugador o finaliza la partida si se cumple una condición de victoria.
+   *
+   * @param gameId ID de la partida en curso
+   * @param currentUserId ID del jugador que acaba de realizar su acción
    */
   async passTurn(gameId: number, currentUserId: number): Promise<void> {
+    // Obtiene el estado actual de la partida y sus jugadores
     const game = await this.gameRepository.findByIdWithPlayers(gameId);
+
     if (!game || !game.board) {
       this.logger.warn(`Juego no encontrado o sin tablero: gameId=${gameId}`);
       return;
     }
 
-    // Eliminar jugadores que han perdido todos sus barcos
+    // Elimina del juego a los jugadores que ya no tienen barcos vivos
     const eliminatedUserIds =
       await this.playerEliminationService.eliminateDefeatedPlayers(game);
 
-    // Notificar jugadores eliminados
+    // Emite un evento por cada jugador eliminado
     for (const userId of eliminatedUserIds) {
       this.gameEventEmitter.emitPlayerEliminated(gameId, userId);
       this.logger.log(
@@ -50,12 +55,13 @@ export class TurnOrchestratorService {
       );
     }
 
+    // Filtra los jugadores que siguen activos (no eliminados ni desconectados)
     const alivePlayers = game.gamePlayers.filter(
       (p) => !eliminatedUserIds.includes(p.userId) && !p.leftAt,
     );
     const aliveUserIds = alivePlayers.map((p) => p.userId);
 
-    // Si no quedan jugadores vivos, finalizar la partida como abandonada
+    // Si no queda nadie vivo, se considera partida abandonada
     if (aliveUserIds.length === 0) {
       this.logger.warn(
         `No quedan jugadores vivos en gameId=${gameId}. Finalizando partida.`,
@@ -63,23 +69,26 @@ export class TurnOrchestratorService {
 
       await this.gameRepository.markGameAsFinished(gameId);
       await this.redisCleaner.clearGameRedisState(gameId);
-
       this.gameEventEmitter.emitGameAbandoned(gameId);
       return;
     }
 
-    // Verificar condición de victoria en modo individual
+    // Verifica si queda solo un jugador y el modo es individual
     if (
       TurnLogicService.isOnlyOnePlayerRemaining(aliveUserIds) &&
       game.mode === 'individual'
     ) {
       const winner = alivePlayers[0];
+
+      // Marca como ganador al jugador sobreviviente
       await this.playerRepository.markPlayerAsWinner(winner.id);
       await this.gameRepository.markGameAsFinished(gameId);
       await this.redisCleaner.clearGameRedisState(gameId);
 
+      // Calcula y guarda estadísticas de la partida finalizada
       await this.statsFacade.generateAndStoreStats(game);
 
+      // Emite evento de fin de partida con el ganador
       this.gameEventEmitter.emitGameEnded(gameId, {
         mode: 'individual',
         winnerUserId: winner.userId,
@@ -91,10 +100,12 @@ export class TurnOrchestratorService {
       return;
     }
 
-    // Verificar condición de victoria en modo equipos
+    // Si el modo de juego es por equipos, verifica si solo queda un equipo vivo
     if (game.mode === 'teams') {
       const winningTeam = TurnLogicService.getSingleAliveTeam(alivePlayers);
+
       if (winningTeam !== null) {
+        // Marca a todos los jugadores del equipo como ganadores
         await this.playerRepository.markTeamPlayersAsWinners(
           gameId,
           winningTeam,
@@ -104,6 +115,7 @@ export class TurnOrchestratorService {
 
         await this.statsFacade.generateAndStoreStats(game);
 
+        // Emite evento indicando el equipo ganador
         this.gameEventEmitter.emitGameEnded(gameId, {
           mode: 'teams',
           winningTeam,
@@ -116,7 +128,7 @@ export class TurnOrchestratorService {
       }
     }
 
-    // Pasar al siguiente turno si el juego continúa
+    // Si no hay condiciones de victoria, simplemente pasa el turno al siguiente jugador
     const nextUserId = TurnLogicService.getNextUserId(
       aliveUserIds,
       currentUserId,

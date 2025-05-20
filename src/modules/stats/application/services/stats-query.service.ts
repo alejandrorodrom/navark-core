@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
 import { GamePlayerStatsDto } from '../../domain/dto/game-player-stats.dto';
 import { UserGlobalStatsDto } from '../../domain/dto/user-global-stats.dto';
 import { UserGlobalStatsRepository } from '../../domain/repository/user-global-stats.repository';

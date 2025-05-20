@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { CreateGameDto } from '../../../domain/dto/create-game.dto';
 import { GameResponseDto } from '../../../domain/dto/game-response.dto';
-import { GameMapper } from '../../../infrastructure/mappers/game.mapper';
+import { GameMapper } from '../../mapper/game.mapper';
 
 @Injectable()
 export class CreateGameService {
