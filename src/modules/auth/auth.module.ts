@@ -1,22 +1,22 @@
 import { Module } from '@nestjs/common';
-import { CreateGuestService } from './application/services/create-guest.service';
+import { CreateGuestUseCase } from './application/use-cases/create-guest.use-case';
 import { JwtProviderModule } from '../../shared/jwt/jwt.module';
 import { UserModule } from '../user/user.module';
-import { IdentifyUserService } from './application/services/identify-user.service';
-import { RefreshTokenService } from './application/services/refresh-token.service';
-import { GetProfileService } from './application/services/get-profile.service';
-import { UpdateProfileService } from './application/services/update-profile.service';
+import { IdentifyUserUseCase } from './application/use-cases/identify-user.use-case';
+import { RefreshTokenUseCase } from './application/use-cases/refresh-token.use-case';
+import { GetProfileUseCase } from './application/use-cases/get-profile.use-case';
+import { UpdateProfileUseCase } from './application/use-cases/update-profile.use-case';
 import { AuthController } from './infrastructure/http/auth.controller';
 
 @Module({
   imports: [JwtProviderModule, UserModule],
   controllers: [AuthController],
   providers: [
-    CreateGuestService,
-    IdentifyUserService,
-    RefreshTokenService,
-    GetProfileService,
-    UpdateProfileService,
+    CreateGuestUseCase,
+    IdentifyUserUseCase,
+    RefreshTokenUseCase,
+    GetProfileUseCase,
+    UpdateProfileUseCase,
   ],
 })
 export class AuthModule {}

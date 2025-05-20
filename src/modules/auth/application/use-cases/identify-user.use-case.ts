@@ -6,7 +6,7 @@ import { User } from '../../../user/domain/entity/user.entity';
 import { UserRepository } from '../../../user/domain/repository/user.repository';
 
 @Injectable()
-export class IdentifyUserService {
+export class IdentifyUserUseCase {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly jwtService: JwtService,

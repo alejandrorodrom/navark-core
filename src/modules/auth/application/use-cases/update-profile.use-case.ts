@@ -5,7 +5,7 @@ import { UpdateProfileDto } from '../../domain/dto/update-profile.dto';
 import { User } from '../../../user/domain/entity/user.entity';
 
 @Injectable()
-export class UpdateProfileService {
+export class UpdateProfileUseCase {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly bcrypt: BcryptPasswordService,

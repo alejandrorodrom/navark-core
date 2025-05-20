@@ -6,7 +6,7 @@ import { RefreshTokenDto } from '../../domain/dto/refresh-token.dto';
 import { User } from '../../../user/domain/entity/user.entity';
 
 @Injectable()
-export class RefreshTokenService {
+export class RefreshTokenUseCase {
   constructor(
     private readonly jwtService: JwtService,
     private readonly userRepo: UserRepository,

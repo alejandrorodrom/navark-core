@@ -8,19 +8,19 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { CreateGuestService } from '../../application/services/create-guest.service';
+import { CreateGuestUseCase } from '../../application/use-cases/create-guest.use-case';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { IdentifyUserService } from '../../application/services/identify-user.service';
-import { RefreshTokenService } from '../../application/services/refresh-token.service';
+import { IdentifyUserUseCase } from '../../application/use-cases/identify-user.use-case';
+import { RefreshTokenUseCase } from '../../application/use-cases/refresh-token.use-case';
 import { JwtAuthGuard } from '../../../../shared/jwt/jwt-auth.guard';
-import { GetProfileService } from '../../application/services/get-profile.service';
+import { GetProfileUseCase } from '../../application/use-cases/get-profile.use-case';
 import { AuthenticatedRequest } from '../../../../shared/jwt/jwt-request.interface';
-import { UpdateProfileService } from '../../application/services/update-profile.service';
+import { UpdateProfileUseCase } from '../../application/use-cases/update-profile.use-case';
 import { AuthResponseDto } from '../../domain/dto/auth-response.dto';
 import { UserResponseDto } from '../../../user/domain/dto/user-response.dto';
 import { IdentifyUserDto } from '../../domain/dto/identify-user.dto';
@@ -31,11 +31,11 @@ import { UpdateProfileDto } from '../../domain/dto/update-profile.dto';
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly createGuest: CreateGuestService,
-    private readonly identifyUser: IdentifyUserService,
-    private readonly refreshTokenService: RefreshTokenService,
-    private readonly getProfileService: GetProfileService,
-    private readonly updateProfileService: UpdateProfileService,
+    private readonly createGuest: CreateGuestUseCase,
+    private readonly identifyUser: IdentifyUserUseCase,
+    private readonly refreshTokenService: RefreshTokenUseCase,
+    private readonly getProfileService: GetProfileUseCase,
+    private readonly updateProfileService: UpdateProfileUseCase,
   ) {}
 
   @Post('guest')

@@ -4,7 +4,7 @@ import { UserRepository } from '../../../user/domain/repository/user.repository'
 import { User } from '../../../user/domain/entity/user.entity';
 
 @Injectable()
-export class CreateGuestService {
+export class CreateGuestUseCase {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly jwtService: JwtService,
