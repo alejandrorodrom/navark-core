@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Board } from '../../../domain/models/board.model';
-import { Shot, ShotType, ShotTarget } from '../../../domain/models/shot.model';
-import { ShotRepository } from '../../../domain/repository/shot.repository';
-import { TeamStateRedis } from '../../../infrastructure/redis/team-state.redis';
-import { ShotEvaluatorService } from '../../../domain/services/shot/shot-evaluator.service';
+import { Board } from '../../domain/models/board.model';
+import { Shot, ShotType, ShotTarget } from '../../domain/models/shot.model';
+import { ShotRepository } from '../../domain/repository/shot.repository';
+import { TeamStateRedis } from '../../infrastructure/redis/team-state.redis';
+import { ShotEvaluatorLogic } from '../../domain/logic/shot-evaluator.logic';
 
 /**
  * Servicio de aplicación que orquesta la lógica de disparos:
@@ -14,13 +14,13 @@ import { ShotEvaluatorService } from '../../../domain/services/shot/shot-evaluat
  * - Actualiza el tablero con disparos visuales
  */
 @Injectable()
-export class ShotService {
-  private readonly logger = new Logger(ShotService.name);
+export class FireShotUseCase {
+  private readonly logger = new Logger(FireShotUseCase.name);
 
   constructor(
     private readonly shotRepository: ShotRepository,
     private readonly teamStateRedis: TeamStateRedis,
-    private readonly shotEvaluator: ShotEvaluatorService,
+    private readonly shotEvaluator: ShotEvaluatorLogic,
   ) {}
 
   /**
@@ -105,7 +105,7 @@ export class ShotService {
 
     // Procesa cada coordenada válida e impacta el tablero
     for (const currentTarget of validTargets) {
-      const result = ShotEvaluatorService.evaluate(
+      const result = ShotEvaluatorLogic.evaluate(
         board.ships,
         currentTarget.row,
         currentTarget.col,

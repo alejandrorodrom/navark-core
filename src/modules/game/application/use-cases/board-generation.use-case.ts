@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Board, Difficulty, Mode } from '../../../domain/models/board.model';
-import { Position, Ship } from '../../../domain/models/ship.model';
+import { Board, Difficulty, Mode } from '../../domain/models/board.model';
+import { Position, Ship } from '../../domain/models/ship.model';
 
 /**
  * Servicio responsable de la generación de tableros de juego y colocación
@@ -13,8 +13,8 @@ import { Position, Ship } from '../../../domain/models/ship.model';
  * - Adaptar la densidad del tablero según el modo de juego
  */
 @Injectable()
-export class BoardGenerationService {
-  private readonly logger = new Logger(BoardGenerationService.name);
+export class BoardGenerationUseCase {
+  private readonly logger = new Logger(BoardGenerationUseCase.name);
 
   /** Límite de intentos para colocar barcos sin colisiones */
   private readonly MAX_PLACEMENT_ATTEMPTS = 100;

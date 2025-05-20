@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { GameRepository } from '../../../domain/repository/game.repository';
-import { CreateGameDto } from '../../../domain/dto/create-game.dto';
-import { GameResponseDto } from '../../../domain/dto/game-response.dto';
-import { GameMapper } from '../../mapper/game.mapper';
+import { GameRepository } from '../../domain/repository/game.repository';
+import { CreateGameDto } from '../../domain/dto/create-game.dto';
+import { GameResponseDto } from '../../domain/dto/game-response.dto';
+import { GameMapper } from '../mapper/game.mapper';
 
 @Injectable()
-export class CreateGameService {
+export class CreateGameUseCase {
   constructor(private readonly gameRepository: GameRepository) {}
 
   async execute(dto: CreateGameDto, userId: number): Promise<GameResponseDto> {

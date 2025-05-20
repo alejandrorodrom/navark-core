@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { TurnStateRedis } from '../../redis/turn-state.redis';
 import { NuclearStateRedis } from '../../redis/nuclear-state.redis';
-import { TurnTimeoutService } from '../../services/game/turn/turn-timeout.service';
-import { TurnOrchestratorService } from '../../services/game/turn/turn-orchestrator.service';
-import { ShotService } from '../../../application/services/fire/shot.service';
+import { TurnTimeoutManager } from '../../managers/turn-timeout.manager';
+import { TurnOrchestrator } from '../../orchestrators/turn.orchestrator';
+import { FireShotUseCase } from '../../../application/use-cases/fire-shot.use-case';
 import { Shot, ShotType } from '../../../domain/models/shot.model';
 import { BoardHandler } from './board.handler';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
@@ -40,9 +40,9 @@ export class FireHandler {
     private readonly playerRepository: PlayerRepository,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly nuclearStateRedis: NuclearStateRedis,
-    private readonly turnTimeoutService: TurnTimeoutService,
-    private readonly turnOrchestratorService: TurnOrchestratorService,
-    private readonly shotService: ShotService,
+    private readonly turnTimeoutService: TurnTimeoutManager,
+    private readonly turnOrchestratorService: TurnOrchestrator,
+    private readonly shotService: FireShotUseCase,
     private readonly boardHandler: BoardHandler,
     private readonly gameEventEmitter: GameEventEmitter,
   ) {}

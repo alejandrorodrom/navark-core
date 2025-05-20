@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { GameRepository } from '../../../domain/repository/game.repository';
-import { MatchmakingDto } from '../../../domain/dto/matchmaking.dto';
-import { GameResponseDto } from '../../../domain/dto/game-response.dto';
-import { GameMapper } from '../../mapper/game.mapper';
+import { GameRepository } from '../../domain/repository/game.repository';
+import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
+import { GameResponseDto } from '../../domain/dto/game-response.dto';
+import { GameMapper } from '../mapper/game.mapper';
 
 @Injectable()
-export class MatchmakingService {
+export class MatchmakingUseCase {
   constructor(private readonly gameRepository: GameRepository) {}
 
   async execute(dto: MatchmakingDto, userId: number): Promise<GameResponseDto> {

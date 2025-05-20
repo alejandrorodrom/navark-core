@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TurnStateRedis } from '../../../redis/turn-state.redis';
-import { ReadyStateRedis } from '../../../redis/ready-state.redis';
-import { TeamStateRedis } from '../../../redis/team-state.redis';
-import { NuclearStateRedis } from '../../../redis/nuclear-state.redis';
+import { TurnStateRedis } from '../redis/turn-state.redis';
+import { ReadyStateRedis } from '../redis/ready-state.redis';
+import { TeamStateRedis } from '../redis/team-state.redis';
+import { NuclearStateRedis } from '../redis/nuclear-state.redis';
 
 /**
  * Servicio responsable de limpiar los estados almacenados en Redis
@@ -15,8 +15,8 @@ import { NuclearStateRedis } from '../../../redis/nuclear-state.redis';
  * - Estados de armas nucleares
  */
 @Injectable()
-export class RedisCleanerService {
-  private readonly logger = new Logger(RedisCleanerService.name);
+export class RedisCleanerOrchestrator {
+  private readonly logger = new Logger(RedisCleanerOrchestrator.name);
 
   constructor(
     private readonly turnStateRedis: TurnStateRedis,

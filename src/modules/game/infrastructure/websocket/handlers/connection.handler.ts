@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LobbyManagerService } from '../../services/game/lobby/lobby-manager.service';
-import { RedisCleanerService } from '../../services/game/cleanup/redis-cleaner.service';
+import { LobbyManager } from '../../managers/lobby.manager';
+import { RedisCleanerOrchestrator } from '../../orchestrators/redis-cleaner.orchestrator';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
@@ -27,8 +27,8 @@ export class ConnectionHandler {
   private readonly logger = new Logger(ConnectionHandler.name);
 
   constructor(
-    private readonly lobbyManager: LobbyManagerService,
-    private readonly redisCleanerService: RedisCleanerService,
+    private readonly lobbyManager: LobbyManager,
+    private readonly redisCleanerService: RedisCleanerOrchestrator,
     private readonly gameRepository: GameRepository,
     private readonly gameSocketMapRedisRepository: GameSocketMapRedisRepository,
     private readonly socketServerAdapter: SocketServerAdapter,

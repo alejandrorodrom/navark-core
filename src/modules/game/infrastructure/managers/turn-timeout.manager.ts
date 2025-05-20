@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { TurnStateRedis } from '../../../redis/turn-state.redis';
-import { PlayerStateRedis } from '../../../redis/player-state.redis';
-import { TurnOrchestratorService } from './turn-orchestrator.service';
-import { GameEventEmitter } from '../../../websocket/events/emitters/game-event.emitter';
+import { TurnStateRedis } from '../redis/turn-state.redis';
+import { PlayerStateRedis } from '../redis/player-state.redis';
+import { TurnOrchestrator } from '../orchestrators/turn.orchestrator';
+import { GameEventEmitter } from '../websocket/events/emitters/game-event.emitter';
 
 /**
  * Servicio encargado de gestionar el tiempo límite por turno de cada jugador.
@@ -14,8 +14,8 @@ import { GameEventEmitter } from '../../../websocket/events/emitters/game-event.
  * - Pasar el turno si no actúan dentro del límite
  */
 @Injectable()
-export class TurnTimeoutService {
-  private readonly logger = new Logger(TurnTimeoutService.name);
+export class TurnTimeoutManager {
+  private readonly logger = new Logger(TurnTimeoutManager.name);
 
   /** Mapa en memoria de timeouts activos por partida */
   private readonly timeouts = new Map<number, NodeJS.Timeout>();
@@ -29,7 +29,7 @@ export class TurnTimeoutService {
   constructor(
     private readonly turnStateRedis: TurnStateRedis,
     private readonly playerStateRedis: PlayerStateRedis,
-    private readonly turnOrchestrator: TurnOrchestratorService,
+    private readonly turnOrchestrator: TurnOrchestrator,
     private readonly gameEventEmitter: GameEventEmitter,
   ) {}
 

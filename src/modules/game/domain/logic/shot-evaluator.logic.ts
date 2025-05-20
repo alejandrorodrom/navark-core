@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Ship } from '../../models/ship.model';
-import { ShotResult, ShotTarget, ShotType } from '../../models/shot.model';
+import { Ship } from '../models/ship.model';
+import { ShotResult, ShotTarget, ShotType } from '../models/shot.model';
 
 /**
  * Servicio especializado en la evaluación de disparos en el tablero de juego.
@@ -12,7 +12,7 @@ import { ShotResult, ShotTarget, ShotType } from '../../models/shot.model';
  * - Convierten el formato de Redis (string) a formato limpio de dominio (number)
  */
 @Injectable()
-export class ShotEvaluatorService {
+export class ShotEvaluatorLogic {
   /**
    * Evalúa un disparo contra todos los barcos del tablero.
    * Si impacta un barco, marca la posición como impactada.

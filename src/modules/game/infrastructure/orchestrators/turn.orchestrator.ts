@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { GameRepository } from '../../../../domain/repository/game.repository';
-import { PlayerRepository } from '../../../../domain/repository/player.repository';
-import { PlayerEliminationService } from './player-elimination.service';
-import { RedisCleanerService } from '../cleanup/redis-cleaner.service';
-import { TurnLogicService } from '../../../../application/services/turn/turn-logic.service';
-import { GameEventEmitter } from '../../../websocket/events/emitters/game-event.emitter';
-import { StatsFacade } from '../../../../../stats/application/facade/stats.facade';
+import { GameRepository } from '../../domain/repository/game.repository';
+import { PlayerRepository } from '../../domain/repository/player.repository';
+import { PlayerEliminationManager } from '../managers/player-elimination.manager';
+import { RedisCleanerOrchestrator } from './redis-cleaner.orchestrator';
+import { TurnLogicUseCase } from '../../application/use-cases/turn-logic.use-case';
+import { GameEventEmitter } from '../websocket/events/emitters/game-event.emitter';
+import { StatsFacade } from '../../../stats/application/facade/stats.facade';
 
 /**
  * Servicio orquestador del sistema de turnos en las partidas.
@@ -16,15 +16,15 @@ import { StatsFacade } from '../../../../../stats/application/facade/stats.facad
  * - Emite eventos al frontend vía WebSocket
  */
 @Injectable()
-export class TurnOrchestratorService {
-  private readonly logger = new Logger(TurnOrchestratorService.name);
+export class TurnOrchestrator {
+  private readonly logger = new Logger(TurnOrchestrator.name);
 
   constructor(
     private readonly gameRepository: GameRepository,
     private readonly playerRepository: PlayerRepository,
     private readonly statsFacade: StatsFacade,
-    private readonly playerEliminationService: PlayerEliminationService,
-    private readonly redisCleaner: RedisCleanerService,
+    private readonly playerEliminationService: PlayerEliminationManager,
+    private readonly redisCleaner: RedisCleanerOrchestrator,
     private readonly gameEventEmitter: GameEventEmitter,
   ) {}
 
@@ -75,7 +75,7 @@ export class TurnOrchestratorService {
 
     // Verifica si queda solo un jugador y el modo es individual
     if (
-      TurnLogicService.isOnlyOnePlayerRemaining(aliveUserIds) &&
+      TurnLogicUseCase.isOnlyOnePlayerRemaining(aliveUserIds) &&
       game.mode === 'individual'
     ) {
       const winner = alivePlayers[0];
@@ -102,7 +102,7 @@ export class TurnOrchestratorService {
 
     // Si el modo de juego es por equipos, verifica si solo queda un equipo vivo
     if (game.mode === 'teams') {
-      const winningTeam = TurnLogicService.getSingleAliveTeam(alivePlayers);
+      const winningTeam = TurnLogicUseCase.getSingleAliveTeam(alivePlayers);
 
       if (winningTeam !== null) {
         // Marca a todos los jugadores del equipo como ganadores
@@ -129,7 +129,7 @@ export class TurnOrchestratorService {
     }
 
     // Si no hay condiciones de victoria, simplemente pasa el turno al siguiente jugador
-    const nextUserId = TurnLogicService.getNextUserId(
+    const nextUserId = TurnLogicUseCase.getNextUserId(
       aliveUserIds,
       currentUserId,
     );

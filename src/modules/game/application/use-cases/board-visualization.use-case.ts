@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Shot, VisualShot } from '../../../domain/models/shot.model';
+import { Shot, VisualShot } from '../../domain/models/shot.model';
 import {
   Ship,
   MyShipState,
   VisibleShip,
-} from '../../../domain/models/ship.model';
-import { GamePlayerWithUser } from '../../../../../prisma/prisma.types';
+} from '../../domain/models/ship.model';
+import { GamePlayerWithUser } from '../../../../prisma/prisma.types';
 
 /**
  * Servicio de visualización del tablero personalizado por jugador.
@@ -18,7 +18,7 @@ import { GamePlayerWithUser } from '../../../../../prisma/prisma.types';
  * - Visualizar disparos pasados (impacto o fallo).
  */
 @Injectable()
-export class BoardVisualizationService {
+export class BoardVisualizationUseCase {
   /**
    * Filtra y retorna los barcos que deberían ser visibles para el jugador solicitante.
    *

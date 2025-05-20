@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RedisCleanerService } from '../../services/game/cleanup/redis-cleaner.service';
+import { RedisCleanerOrchestrator } from '../../orchestrators/redis-cleaner.orchestrator';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
@@ -26,7 +26,7 @@ export class LeaveHandler {
   constructor(
     private readonly gameRepository: GameRepository,
     private readonly socketServerAdapter: SocketServerAdapter,
-    private readonly redisUtils: RedisCleanerService,
+    private readonly redisUtils: RedisCleanerOrchestrator,
     private readonly gameEventEmitter: GameEventEmitter,
   ) {}
 

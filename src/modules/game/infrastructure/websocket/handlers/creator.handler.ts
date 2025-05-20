@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LobbyManagerService } from '../../services/game/lobby/lobby-manager.service';
+import { LobbyManager } from '../../managers/lobby.manager';
 import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
@@ -25,7 +25,7 @@ export class CreatorHandler {
   private readonly logger = new Logger(CreatorHandler.name);
 
   constructor(
-    private readonly lobbyManager: LobbyManagerService,
+    private readonly lobbyManager: LobbyManager,
     private readonly gameRepository: GameRepository,
     private readonly socketServerAdapter: SocketServerAdapter,
     private readonly gameEventEmitter: GameEventEmitter,

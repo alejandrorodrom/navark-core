@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TeamStateRedis } from '../../redis/team-state.redis';
 import { SocketWithUser } from '../../../domain/types/socket.types';
-import { BoardVisualizationService } from '../../../application/services/board/board-visualization.service';
+import { BoardVisualizationUseCase } from '../../../application/use-cases/board-visualization.use-case';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { parseBoard } from '../../../application/mapper/board.mapper';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
@@ -29,7 +29,7 @@ export class BoardHandler {
     private readonly gameRepository: GameRepository,
     private readonly teamStateRedis: TeamStateRedis,
     private readonly gameEventEmitter: GameEventEmitter,
-    private readonly boardVisualizationService: BoardVisualizationService,
+    private readonly boardVisualizationService: BoardVisualizationUseCase,
   ) {}
 
   /**

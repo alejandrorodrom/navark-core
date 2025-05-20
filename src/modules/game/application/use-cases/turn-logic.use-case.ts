@@ -1,5 +1,5 @@
-import { Board } from '../../../domain/models/board.model';
-import { GamePlayer } from '../../../../../prisma/prisma.types';
+import { Board } from '../../domain/models/board.model';
+import { GamePlayer } from '../../../../prisma/prisma.types';
 
 /**
  * Servicio de lógica pura para el manejo de turnos.
@@ -9,7 +9,7 @@ import { GamePlayer } from '../../../../../prisma/prisma.types';
  * - Calcular el siguiente jugador en turno
  * - Verificar condiciones de victoria en individual o equipos
  */
-export class TurnLogicService {
+export class TurnLogicUseCase {
   /**
    * Verifica si un jugador tiene al menos un barco aún no hundido en el tablero.
    *

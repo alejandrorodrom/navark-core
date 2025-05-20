@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PlayerRepository } from '../../../../domain/repository/player.repository';
-import { GameWithPlayers } from '../../../../../../prisma/prisma.types';
-import { parseBoard } from '../../../../application/mapper/board.mapper';
+import { PlayerRepository } from '../../domain/repository/player.repository';
+import { GameWithPlayers } from '../../../../prisma/prisma.types';
+import { parseBoard } from '../../application/mapper/board.mapper';
 
 /**
  * Servicio que identifica y elimina a los jugadores que ya no tienen barcos vivos.
@@ -12,7 +12,7 @@ import { parseBoard } from '../../../../application/mapper/board.mapper';
  * - Devolver una lista de userIds eliminados para notificar al cliente
  */
 @Injectable()
-export class PlayerEliminationService {
+export class PlayerEliminationManager {
   constructor(private readonly playerRepository: PlayerRepository) {}
 
   /**

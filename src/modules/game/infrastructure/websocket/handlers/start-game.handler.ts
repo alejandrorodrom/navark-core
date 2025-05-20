@@ -4,7 +4,7 @@ import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { ReadyStateRedis } from '../../redis/ready-state.redis';
 import { TeamStateRedis } from '../../redis/team-state.redis';
 import { TurnStateRedis } from '../../redis/turn-state.redis';
-import { BoardGenerationService } from '../../../application/services/game-init/board-generation.service';
+import { BoardGenerationUseCase } from '../../../application/use-cases/board-generation.use-case';
 import { BoardHandler } from './board.handler';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
@@ -36,7 +36,7 @@ export class StartGameHandler {
     private readonly teamStateRedis: TeamStateRedis,
     private readonly turnStateRedis: TurnStateRedis,
     private readonly socketServerAdapter: SocketServerAdapter,
-    private readonly boardGenerationService: BoardGenerationService,
+    private readonly boardGenerationService: BoardGenerationUseCase,
     private readonly boardHandler: BoardHandler,
     private readonly gameEventEmitter: GameEventEmitter,
   ) {}

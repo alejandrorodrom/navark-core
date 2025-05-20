@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SocketServerAdapter } from '../../../adapters/socket-server.adapter';
-import { GameEventEmitter } from '../../../websocket/events/emitters/game-event.emitter';
+import { SocketServerAdapter } from '../adapters/socket-server.adapter';
+import { GameEventEmitter } from '../websocket/events/emitters/game-event.emitter';
 
 @Injectable()
-export class LobbyManagerService {
-  private readonly logger = new Logger(LobbyManagerService.name);
+export class LobbyManager {
+  private readonly logger = new Logger(LobbyManager.name);
 
   constructor(
     private readonly socketServer: SocketServerAdapter,

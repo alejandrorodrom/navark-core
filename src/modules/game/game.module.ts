@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GameController } from './infrastructure/http/game.controller';
-import { CreateGameService } from './application/services/game-init/create-game.service';
-import { MatchmakingService } from './application/services/matchmaking/matchmaking.service';
+import { CreateGameUseCase } from './application/use-cases/create-game.use-case';
+import { MatchmakingUseCase } from './application/use-cases/matchmaking.use-case';
 import { GameFacade } from './application/facade/game.facade';
 import { GameRepository } from './domain/repository/game.repository';
 import { GamePrismaRepository } from './infrastructure/repository/prisma/game.prisma.repository';
@@ -22,28 +22,28 @@ import { JoinHandler } from './infrastructure/websocket/handlers/join.handler';
 import { LeaveHandler } from './infrastructure/websocket/handlers/leave.handler';
 import { StartGameHandler } from './infrastructure/websocket/handlers/start-game.handler';
 import { BoardHandler } from './infrastructure/websocket/handlers/board.handler';
-import { LobbyManagerService } from './infrastructure/services/game/lobby/lobby-manager.service';
-import { RedisCleanerService } from './infrastructure/services/game/cleanup/redis-cleaner.service';
-import { TurnOrchestratorService } from './infrastructure/services/game/turn/turn-orchestrator.service';
-import { TurnTimeoutService } from './infrastructure/services/game/turn/turn-timeout.service';
+import { LobbyManager } from './infrastructure/managers/lobby.manager';
+import { RedisCleanerOrchestrator } from './infrastructure/orchestrators/redis-cleaner.orchestrator';
+import { TurnOrchestrator } from './infrastructure/orchestrators/turn.orchestrator';
+import { TurnTimeoutManager } from './infrastructure/managers/turn-timeout.manager';
 import { SocketServerAdapter } from './infrastructure/adapters/socket-server.adapter';
-import { BoardGenerationService } from './application/services/game-init/board-generation.service';
-import { ShotService } from './application/services/fire/shot.service';
+import { BoardGenerationUseCase } from './application/use-cases/board-generation.use-case';
+import { FireShotUseCase } from './application/use-cases/fire-shot.use-case';
 import { RedisStateModule } from './infrastructure/redis/redis-state.module';
 import { GameSocketMapRedisRepository } from './infrastructure/repository/redis/game-socket-map.redis.repository';
-import { PlayerEliminationService } from './infrastructure/services/game/turn/player-elimination.service';
+import { PlayerEliminationManager } from './infrastructure/managers/player-elimination.manager';
 import { GameEventEmitter } from './infrastructure/websocket/events/emitters/game-event.emitter';
 import { StatsModule } from '../stats/stats.module';
-import { BoardVisualizationService } from './application/services/board/board-visualization.service';
-import { ShotEvaluatorService } from './domain/services/shot/shot-evaluator.service';
+import { BoardVisualizationUseCase } from './application/use-cases/board-visualization.use-case';
+import { ShotEvaluatorLogic } from './domain/logic/shot-evaluator.logic';
 
 @Module({
   controllers: [GameController],
   providers: [
     PrismaService,
-    CreateGameService,
-    MatchmakingService,
-    BoardVisualizationService,
+    CreateGameUseCase,
+    MatchmakingUseCase,
+    BoardVisualizationUseCase,
 
     GameFacade,
 
@@ -61,16 +61,16 @@ import { ShotEvaluatorService } from './domain/services/shot/shot-evaluator.serv
     StartGameHandler,
     BoardHandler,
 
-    LobbyManagerService,
-    RedisCleanerService,
+    LobbyManager,
+    RedisCleanerOrchestrator,
 
-    PlayerEliminationService,
-    TurnOrchestratorService,
-    TurnTimeoutService,
+    PlayerEliminationManager,
+    TurnOrchestrator,
+    TurnTimeoutManager,
 
-    BoardGenerationService,
-    ShotService,
-    ShotEvaluatorService,
+    BoardGenerationUseCase,
+    FireShotUseCase,
+    ShotEvaluatorLogic,
 
     GameSocketMapRedisRepository,
     { provide: GameRepository, useClass: GamePrismaRepository },
