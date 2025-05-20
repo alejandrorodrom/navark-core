@@ -34,6 +34,8 @@ import { GameSocketMapRedisRepository } from './infrastructure/repository/redis/
 import { PlayerEliminationService } from './infrastructure/services/game/turn/player-elimination.service';
 import { GameEventEmitter } from './infrastructure/websocket/events/emitters/game-event.emitter';
 import { StatsModule } from '../stats/stats.module';
+import { BoardVisualizationService } from './application/services/board/board-visualization.service';
+import { ShotEvaluatorService } from './domain/services/shot/shot-evaluator.service';
 
 @Module({
   controllers: [GameController],
@@ -41,6 +43,7 @@ import { StatsModule } from '../stats/stats.module';
     PrismaService,
     CreateGameService,
     MatchmakingService,
+    BoardVisualizationService,
 
     GameFacade,
 
@@ -67,6 +70,7 @@ import { StatsModule } from '../stats/stats.module';
 
     BoardGenerationService,
     ShotService,
+    ShotEvaluatorService,
 
     GameSocketMapRedisRepository,
     { provide: GameRepository, useClass: GamePrismaRepository },
