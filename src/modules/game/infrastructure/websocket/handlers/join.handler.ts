@@ -371,8 +371,8 @@ export class JoinHandler {
           .join(', ')}`,
       );
 
-      // Registrar al jugador en el equipo seleccionado
-      await this.teamStateRedis.setPlayerTeam(gameId, client.id, team);
+      // Registrar al jugador en el equipo seleccionado (usando userId como key en Redis)
+      await this.teamStateRedis.setPlayerTeam(gameId, client.data.userId, team);
 
       // Notificar a todos los jugadores sobre la asignación de equipo
       this.gameEventEmitter.emitPlayerTeamAssigned(gameId, client.id, team);

@@ -13,21 +13,18 @@ import { Difficulty, Mode } from '../../../domain/models/board.model';
 import { EventPayload } from '../events/types/events-payload.type';
 
 /**
- * Servicio especializado en el manejo del inicio de partidas, encargado de:
+ * Servicio encargado de gestionar el inicio formal de una partida multijugador.
  *
- * - Validar que todos los participantes cumplan requisitos para comenzar
- * - Verificar configuraciones de equipos según el modo de juego
- * - Coordinar la generación del tablero global con barcos para todos los jugadores
- * - Asignar equipos a los barcos cuando corresponda
- * - Inicializar estado de turno y notificar a los participantes
- * - Enviar estados iniciales del tablero a cada jugador
+ * Valida condiciones necesarias para comenzar:
+ * - Autorización del creador
+ * - Jugadores listos
+ * - Equipos correctamente configurados (modo teams)
  *
- * Este servicio representa el punto crítico de transición entre la fase de
- * preparación de una partida y el inicio efectivo del juego.
+ * Luego genera el tablero global, asigna equipos a barcos, establece el primer turno,
+ * notifica a los jugadores y emite sus tableros personalizados.
  */
 @Injectable()
 export class StartGameHandler {
-  /** Logger dedicado para monitorear el proceso de inicio de partidas */
   private readonly logger = new Logger(StartGameHandler.name);
 
   constructor(
@@ -42,20 +39,17 @@ export class StartGameHandler {
   ) {}
 
   /**
-   * Procesa la solicitud de inicio de partida verificando:
+   * Ejecuta todo el flujo de inicio de partida:
    *
-   * 1. Que la solicitud provenga del creador de la partida
-   * 2. Que todos los jugadores estén preparados (estado "ready")
-   * 3. Que en modo equipos, cada jugador tenga un equipo asignado
-   * 4. Que al menos un equipo tenga suficientes jugadores (≥2)
+   * 1. Valida que la solicitud proviene del creador
+   * 2. Asegura que todos estén listos
+   * 3. Valida equipos (si aplica)
+   * 4. Genera el tablero y lo persiste
+   * 5. Establece el primer turno
+   * 6. Notifica el inicio y envía tableros a cada jugador
    *
-   * Si todas las validaciones son exitosas, genera el tablero global,
-   * asigna equipos a los barcos cuando corresponde, establece el turno inicial
-   * y notifica a todos los participantes que el juego ha comenzado.
-   *
-   * @param client Socket del cliente que solicita iniciar la partida
-   * @param data Objeto con el ID de la partida a iniciar
-   * @returns Promesa que se resuelve cuando el proceso ha sido completado
+   * @param client Socket del creador
+   * @param data Payload con el gameId a iniciar
    */
   async onGameStart(
     client: SocketWithUser,
@@ -69,10 +63,7 @@ export class StartGameHandler {
     );
 
     try {
-      // Obtener información de la partida con sus jugadores
       const game = await this.gameRepository.findByIdWithPlayers(gameId);
-
-      // Validar que la partida exista
       if (!game) {
         this.logger.warn(`Partida no encontrada. gameId=${gameId}`);
         this.gameEventEmitter.emitGameStartAck(
@@ -83,11 +74,8 @@ export class StartGameHandler {
         return;
       }
 
-      // Validar que la solicitud provenga del creador
-      if (game.createdById?.toString() !== userId?.toString()) {
-        this.logger.warn(
-          `Usuario no autorizado. userId=${userId}, gameId=${gameId}`,
-        );
+      if (game.createdById !== userId) {
+        this.logger.warn(`Intento de inicio no autorizado. userId=${userId}`);
         this.gameEventEmitter.emitGameStartAck(
           client.id,
           false,
@@ -96,16 +84,11 @@ export class StartGameHandler {
         return;
       }
 
-      // Obtener información de estado de jugadores listos
       const readySocketIds = await this.readyStateRedis.getAllReady(gameId);
       const allSocketIds = this.socketServerAdapter.getSocketsInGame(gameId);
+      const allReady = allSocketIds.every((id) => readySocketIds.includes(id));
 
-      // Validar que todos los jugadores estén listos
-      const allPlayersReady = allSocketIds.every((id) =>
-        readySocketIds.includes(id),
-      );
-
-      if (!allPlayersReady) {
+      if (!allReady) {
         this.logger.warn(`Jugadores no listos. gameId=${gameId}`);
         this.gameEventEmitter.emitGameStartAck(
           client.id,
@@ -115,16 +98,16 @@ export class StartGameHandler {
         return;
       }
 
-      // Obtener asignaciones de equipos
       const teams = await this.teamStateRedis.getAllTeams(gameId);
 
-      // Validar asignación de equipos según el modo de juego
+      // Validaciones específicas si el modo es por equipos
       if (game.mode === 'teams') {
-        // Verificar que todos los jugadores tengan equipo asignado
-        const allPlayersAssignedTeam = allSocketIds.every((id) => teams[id]);
+        const userIds = game.gamePlayers.map((p) => p.userId);
 
-        if (!allPlayersAssignedTeam) {
-          this.logger.warn(`Jugadores sin equipo asignado. gameId=${gameId}`);
+        // Todos los jugadores deben tener equipo
+        const allAssigned = userIds.every((id) => teams[id] !== undefined);
+        if (!allAssigned) {
+          this.logger.warn(`Faltan asignaciones de equipo. gameId=${gameId}`);
           this.gameEventEmitter.emitGameStartAck(
             client.id,
             false,
@@ -133,19 +116,16 @@ export class StartGameHandler {
           return;
         }
 
-        // Verificar que al menos un equipo tenga suficientes jugadores
-        const playerTeamCounts: Record<number, number> = {};
-        for (const team of Object.values(teams)) {
-          playerTeamCounts[team] = (playerTeamCounts[team] || 0) + 1;
-        }
+        // Al menos un equipo debe tener 2 o más integrantes
+        const teamCounts: Record<number, number> = {};
+        Object.values(teams).forEach((teamId) => {
+          teamCounts[teamId] = (teamCounts[teamId] || 0) + 1;
+        });
 
-        const hasTeamWithTwoOrMore = Object.values(playerTeamCounts).some(
-          (count) => count >= 2,
-        );
-
-        if (!hasTeamWithTwoOrMore) {
+        const validTeam = Object.values(teamCounts).some((count) => count >= 2);
+        if (!validTeam) {
           this.logger.warn(
-            `No hay equipos con al menos 2 jugadores. gameId=${gameId}`,
+            `Distribución inválida: todos los equipos con 1 jugador. gameId=${gameId}`,
           );
           this.gameEventEmitter.emitGameStartAck(
             client.id,
@@ -156,64 +136,35 @@ export class StartGameHandler {
         }
       }
 
-      // Generar tablero global con barcos para todos los jugadores
-      const playerIds = game.gamePlayers.map((player) => player.userId);
-
+      // Generar tablero con barcos para todos los jugadores
+      const playerIds = game.gamePlayers.map((p) => p.userId);
       const board = this.boardGenerationService.generateGlobalBoard(
         playerIds,
         game.difficulty as Difficulty,
         game.mode as Mode,
       );
 
-      // Asignar teamId a barcos si es modo equipos
+      // Asignar equipos a barcos
       if (game.mode === 'teams') {
-        // Crear un mapa de userId -> teamId para búsqueda eficiente
-        const userTeamMap = new Map<number, number>();
-
-        // Llenar el mapa primero
-        for (const socketId of Object.keys(teams)) {
-          // Buscar el jugador asociado a este socketId
-          const player = game.gamePlayers.find(
-            (p) => p.userId.toString() === socketId,
-          );
-          if (player) {
-            userTeamMap.set(player.userId, teams[socketId]);
+        board.ships.forEach((ship) => {
+          if (ship.ownerId !== null && teams[ship.ownerId] !== undefined) {
+            ship.teamId = teams[ship.ownerId];
           }
-        }
-
-        // Asignar equipos a los barcos
-        for (const ship of board.ships) {
-          // Asegurarnos de que ownerId no sea null antes de usarlo
-          if (ship.ownerId !== null && ship.ownerId !== undefined) {
-            const teamId = userTeamMap.get(ship.ownerId);
-            if (teamId) {
-              ship.teamId = teamId;
-            }
-          }
-        }
+        });
       }
 
-      // Persistir el tablero generado y actualizar estado de la partida
       await this.gameRepository.updateGameStartBoard(gameId, board);
+      await this.turnStateRedis.setCurrentTurn(gameId, game.createdById);
 
-      // Establecer el turno inicial (siempre empieza el creador)
-      await this.turnStateRedis.setCurrentTurn(game.id, game.createdById);
-
-      // Notificar a todos los jugadores que la partida ha comenzado
       this.gameEventEmitter.emitTurnChanged(gameId, game.createdById);
       this.gameEventEmitter.emitGameStarted(gameId);
-
-      // Confirmar al creador que el inicio fue exitoso
       this.gameEventEmitter.emitGameStartAck(client.id, true);
 
-      this.logger.log(`Partida iniciada exitosamente. gameId=${gameId}`);
+      this.logger.log(`Partida iniciada correctamente. gameId=${gameId}`);
 
-      // Enviar a cada jugador su vista personalizada del tablero
       await this.sendInitialBoardState(allSocketIds, game.id);
     } catch (error) {
-      this.logger.error(
-        `Error al iniciar partida: gameId=${gameId}, error=${error}`,
-      );
+      this.logger.error(`Error al iniciar partida: gameId=${gameId}`, error);
       this.gameEventEmitter.emitGameStartAck(
         client.id,
         false,
@@ -223,10 +174,11 @@ export class StartGameHandler {
   }
 
   /**
-   * Envía a cada jugador su vista personalizada del tablero con la
-   * información visible según su rol y equipo.
+   * Envía el estado visual del tablero a todos los jugadores conectados.
    *
-   * @param socketIds Lista de IDs de socket de los jugadores
+   * Cada jugador recibe su versión personalizada del tablero.
+   *
+   * @param socketIds Lista de sockets conectados en la partida
    * @param gameId ID de la partida
    * @returns Promesa que se resuelve cuando todos los estados han sido enviados
    * @private
@@ -235,32 +187,24 @@ export class StartGameHandler {
     socketIds: string[],
     gameId: number,
   ): Promise<void> {
-    try {
-      for (const socketId of socketIds) {
-        const socket = this.socketServerAdapter
-          .getServer()
-          .sockets.sockets.get(socketId);
+    for (const socketId of socketIds) {
+      const socket = this.socketServerAdapter
+        .getServer()
+        .sockets.sockets.get(socketId);
 
-        if (socket) {
-          await this.boardHandler.sendBoardUpdate(
-            socket as SocketWithUser,
-            gameId,
-          );
-          this.logger.debug(`Tablero enviado para socket ${socketId}`);
-        } else {
-          this.logger.warn(
-            `Socket no encontrado al enviar tablero: ${socketId}`,
-          );
-        }
+      if (socket) {
+        await this.boardHandler.sendBoardUpdate(
+          socket as SocketWithUser,
+          gameId,
+        );
+        this.logger.debug(`Tablero enviado a socket ${socketId}`);
+      } else {
+        this.logger.warn(
+          `Socket no encontrado para envío de tablero: ${socketId}`,
+        );
       }
-
-      this.logger.log(
-        `Estados iniciales de tablero enviados a todos los jugadores para gameId=${gameId}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Error al enviar estados iniciales del tablero: gameId=${gameId}, error=${error}`,
-      );
     }
+
+    this.logger.log(`Tableros iniciales enviados a todos. gameId=${gameId}`);
   }
 }
