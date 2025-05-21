@@ -34,7 +34,7 @@ export class TurnLogicUseCase {
   static getNextUserId(aliveUserIds: number[], currentUserId: number): number {
     const idx = aliveUserIds.indexOf(currentUserId);
 
-    if (idx === -1 || aliveUserIds.length === 0) {
+    if (aliveUserIds.length === 0 || !aliveUserIds.includes(currentUserId)) {
       // Por seguridad, si el jugador no está en la lista, se devuelve el mismo
       return currentUserId;
     }
