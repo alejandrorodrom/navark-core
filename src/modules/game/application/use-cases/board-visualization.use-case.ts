@@ -21,27 +21,21 @@ export class BoardVisualizationUseCase {
    * La visibilidad se determina por las siguientes reglas:
    * 1. Un jugador siempre ve sus propios barcos completos.
    * 2. Un jugador ve los barcos de sus compañeros de equipo (en modo equipos).
-   * 3. Un jugador NO ve los barcos enemigos (salvo que se implementen reglas especiales).
+   * 3. Un jugador NO ve los barcos enemigos.
    *
-   * @param ships Lista completa de barcos en el tablero
-   * @param clientUserId ID del jugador que solicita su vista personalizada
-   * @param teams Mapa de socketId o userId (string) → teamId
-   * @param gamePlayers Lista de jugadores con su información de usuario
-   * @returns Lista de barcos visibles al jugador, enriquecidos con nickname y color
+   * @param ships Lista completa de barcos en el tablero.
+   * @param clientUserId ID del jugador que solicita su vista personalizada.
+   * @param teams Mapa userId → teamId (Record<number, number>).
+   * @param gamePlayers Lista de jugadores con su información de usuario.
+   * @returns Lista de barcos visibles al jugador, enriquecidos con nickname y color.
    */
   getVisibleShips(
     ships: Ship[],
     clientUserId: number,
-    teams: Record<string, number>,
+    teams: Record<number, number>,
     gamePlayers: GamePlayerWithUser[],
   ): VisibleShip[] {
-    // Buscar el socketId o userId string correspondiente al jugador
-    const mySocketId = Object.keys(teams).find(
-      (key) =>
-        gamePlayers.find((p) => p.userId.toString() === key)?.userId ===
-        clientUserId,
-    );
-    const myTeam = mySocketId ? teams[mySocketId] : null;
+    const myTeam = teams[clientUserId] ?? null;
 
     // Crear un mapa con nickname y color por userId
     const playerInfo = new Map<number, { nickname: string; color: string }>();
@@ -55,17 +49,9 @@ export class BoardVisualizationUseCase {
     // Filtrar barcos visibles y enriquecer con datos visuales
     return ships
       .filter((ship) => {
-        const ownerSocketId = Object.keys(teams).find(
-          (socketId) =>
-            gamePlayers.find((p) => p.userId.toString() === socketId)
-              ?.userId === ship.ownerId,
-        );
-        const ownerTeam = ownerSocketId ? teams[ownerSocketId] : null;
-
-        // Ver barcos propios o de compañeros de equipo
-        const isVisible = ship.ownerId === clientUserId || ownerTeam === myTeam;
-
-        return isVisible && ship.ownerId !== null;
+        if (ship.ownerId === null) return false;
+        const ownerTeam = teams[ship.ownerId] ?? null;
+        return ship.ownerId === clientUserId || ownerTeam === myTeam;
       })
       .map((ship) => ({
         ownerId: ship.ownerId!,

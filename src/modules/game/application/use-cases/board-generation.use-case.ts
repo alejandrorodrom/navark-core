@@ -74,24 +74,24 @@ export class BoardGenerationUseCase {
 
     // 7. Iniciar el proceso de colocación de barcos
     const ships: Ship[] = [];
+    const occupiedPositions = new Set<string>();
     let shipId = 1;
 
     for (const playerId of playerIds) {
       for (const shipSize of shipSizesPerPlayer) {
-        // 8. Generar un barco aleatorio
         let newShip = this.generateRandomShip(size, shipSize, shipId, playerId);
         let attempts = 0;
 
-        // 9. Reintentar hasta ubicar un barco sin colisiones o agotar intentos
+        // 8. Reintentar hasta ubicar un barco sin colisiones o agotar intentos
         while (
-          this.hasCollision(newShip, ships) &&
+          this.hasCollisionWithSet(newShip, occupiedPositions) &&
           attempts < this.MAX_PLACEMENT_ATTEMPTS
         ) {
           newShip = this.generateRandomShip(size, shipSize, shipId, playerId);
           attempts++;
         }
 
-        // 10. Si se superan los intentos máximos, lanzar error
+        // 9. Si se superan los intentos máximos, lanzar error
         if (attempts >= this.MAX_PLACEMENT_ATTEMPTS) {
           this.logger.error(
             `No se pudo colocar barco: playerId=${playerId}, shipSize=${shipSize}, intentos=${attempts}`,
@@ -102,6 +102,12 @@ export class BoardGenerationUseCase {
         }
 
         ships.push(newShip);
+
+        // 10. Registrar todas las posiciones del barco en el Set
+        for (const pos of newShip.positions) {
+          occupiedPositions.add(`${pos.row}:${pos.col}`);
+        }
+
         shipId++;
       }
     }
@@ -232,22 +238,13 @@ export class BoardGenerationUseCase {
   }
 
   /**
-   * Verifica si el nuevo barco colisiona con otros ya colocados.
+   * Verifica si un barco colisiona con las posiciones ya ocupadas usando un Set.
    *
-   * @param newShip Barco que se intenta colocar.
-   * @param existingShips Barcos ya colocados en el tablero.
-   * @returns `true` si hay colisión, `false` si no.
+   * @param ship Barco a verificar.
+   * @param occupied Set de posiciones ocupadas (formato "row:col").
+   * @returns true si hay colisión, false si no.
    */
-  private hasCollision(newShip: Ship, existingShips: Ship[]): boolean {
-    for (const ship of existingShips) {
-      for (const pos of ship.positions) {
-        if (
-          newShip.positions.some((p) => p.row === pos.row && p.col === pos.col)
-        ) {
-          return true;
-        }
-      }
-    }
-    return false;
+  private hasCollisionWithSet(ship: Ship, occupied: Set<string>): boolean {
+    return ship.positions.some((pos) => occupied.has(`${pos.row}:${pos.col}`));
   }
 }
