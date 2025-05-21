@@ -7,23 +7,23 @@ import { GameEventEmitter } from '../websocket/events/emitters/game-event.emitte
 /**
  * Servicio encargado de gestionar el tiempo límite por turno de cada jugador.
  *
- * Funciones:
- * - Iniciar y cancelar temporizadores
- * - Controlar turnos perdidos por inactividad
- * - Expulsar automáticamente a jugadores inactivos
- * - Pasar el turno si no actúan dentro del límite
+ * Funcionalidades principales:
+ * - Iniciar y cancelar temporizadores por partida
+ * - Llevar control de inactividad (turnos perdidos)
+ * - Expulsar a jugadores por inactividad prolongada
+ * - Avanzar automáticamente al siguiente turno si no se actúa a tiempo
  */
 @Injectable()
 export class TurnTimeoutManager {
   private readonly logger = new Logger(TurnTimeoutManager.name);
 
-  /** Mapa en memoria de timeouts activos por partida */
+  /** Mapa en memoria con los timeouts activos por partida */
   private readonly timeouts = new Map<number, NodeJS.Timeout>();
 
-  /** Duración máxima de un turno en milisegundos (10 segundos) */
+  /** Tiempo máximo permitido por turno (en milisegundos) */
   private readonly TIMEOUT_DURATION = 10_000;
 
-  /** Máximo número de turnos que un jugador puede perder antes de ser expulsado */
+  /** Límite de turnos perdidos antes de expulsar a un jugador */
   private readonly MAX_MISSED_TURNS = 3;
 
   constructor(
@@ -34,22 +34,22 @@ export class TurnTimeoutManager {
   ) {}
 
   /**
-   * Inicia el temporizador para el turno actual.
+   * Inicia el temporizador para un turno.
    *
-   * Si ya existe un timeout activo para la partida, lo cancela antes de iniciar uno nuevo.
-   * También registra en Redis qué jugador tiene el turno en curso.
+   * Si ya había un timeout corriendo para la partida, se cancela y se reinicia.
+   * Además, se registra en Redis quién tiene el turno actual.
    *
    * @param gameId ID de la partida
    * @param currentUserId ID del jugador con el turno actual
    */
   async start(gameId: number, currentUserId: number): Promise<void> {
-    // Registrar en Redis quién tiene el turno actual
+    // 1. Guardar en Redis quién tiene el turno activo
     await this.turnStateRedis.setTurnTimeout(gameId, currentUserId);
 
-    // Cancelar cualquier timeout anterior que siga activo
+    // 2. Cancelar timeout anterior (si existía)
     this.cancel(gameId);
 
-    // Crear nuevo timeout en memoria
+    // 3. Iniciar nuevo timeout en memoria
     const timeoutId = setTimeout(() => {
       this.handleTimeout(gameId, currentUserId).catch((error) => {
         this.logger.error(`Error en timeout: ${error}`);
@@ -64,9 +64,9 @@ export class TurnTimeoutManager {
   }
 
   /**
-   * Elimina el registro de timeout en Redis, pero no cancela el temporizador local.
+   * Limpia el estado del turno en Redis, pero no detiene el temporizador local.
    *
-   * Esto se puede usar al finalizar turnos correctamente.
+   * Se usa cuando un jugador ha completado su turno exitosamente.
    *
    * @param gameId ID de la partida
    */
@@ -76,9 +76,10 @@ export class TurnTimeoutManager {
   }
 
   /**
-   * Cancela el temporizador activo en memoria para una partida.
+   * Cancela el temporizador en memoria para una partida.
    *
-   * Esto no afecta el estado en Redis, solo detiene el callback de inactividad.
+   * No afecta el estado en Redis. Útil cuando se quiere evitar
+   * que el callback se dispare, por ejemplo si ya se pasó el turno manualmente.
    *
    * @param gameId ID de la partida
    */
@@ -94,35 +95,35 @@ export class TurnTimeoutManager {
   }
 
   /**
-   * Lógica que se ejecuta cuando un jugador no realiza su acción dentro del tiempo límite.
+   * Callback ejecutado automáticamente si un jugador no responde a tiempo.
    *
-   * - Verifica si el jugador sigue teniendo el turno
-   * - Aumenta el contador de fallos por inactividad
-   * - Expulsa al jugador si excede el límite
-   * - De lo contrario, pasa automáticamente al siguiente jugador
+   * - Verifica que el jugador aún tenga el turno
+   * - Incrementa su contador de turnos perdidos
+   * - Si supera el límite, lo expulsa de la partida
+   * - Si no, emite evento de timeout y avanza al siguiente turno
    *
    * @param gameId ID de la partida
-   * @param currentUserId ID del jugador con el turno vencido
+   * @param currentUserId ID del jugador inactivo
    */
   private async handleTimeout(
     gameId: number,
     currentUserId: number,
   ): Promise<void> {
-    // Verifica que el turno aún le pertenezca a ese jugador
+    // 1. Confirmar que el turno aún pertenece al jugador esperado
     const expectedUserId = await this.turnStateRedis.getTurnTimeout(gameId);
     if (expectedUserId !== currentUserId) return;
 
-    // Incrementa el contador de turnos perdidos en Redis
+    // 2. Incrementar el contador de turnos perdidos
     const missedTurns = await this.turnStateRedis.incrementMissedTurns(
       gameId,
       currentUserId,
     );
 
-    // Si excedió el límite, se marca como abandonado y se expulsa
+    // 3. Si excede el límite de fallos → marcar como abandonado
     if (missedTurns >= this.MAX_MISSED_TURNS) {
       await this.playerStateRedis.markAsAbandoned(gameId, currentUserId);
 
-      // Notifica a todos que fue eliminado
+      // Emitir evento de eliminación por inactividad
       this.gameEventEmitter.emitPlayerEliminated(gameId, currentUserId);
 
       this.logger.warn(
@@ -131,14 +132,14 @@ export class TurnTimeoutManager {
       return;
     }
 
-    // Si aún puede continuar, se emite evento de timeout y se pasa el turno
+    // 4. Emitir evento de timeout y avanzar al siguiente jugador
     this.gameEventEmitter.emitTurnTimeout(gameId, currentUserId);
 
     this.logger.log(
       `Turno perdido para userId=${currentUserId} en gameId=${gameId}. Fallos=${missedTurns}`,
     );
 
-    // El turno se pasa al siguiente jugador usando el orquestador
+    // 5. Orquestar el siguiente turno
     await this.turnOrchestrator.passTurn(gameId, currentUserId);
   }
 }

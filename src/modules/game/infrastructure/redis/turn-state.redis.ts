@@ -2,24 +2,33 @@ import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../../../redis/redis.service';
 
 /**
- * TurnStateRedis maneja el estado del turno actual en Redis.
- * Incluye información sobre:
- * - De quién es el turno actual.
- * - Timeout activo de turno.
- * - Cantidad de turnos fallidos.
+ * Servicio encargado de gestionar el estado del turno en Redis.
+ *
+ * Controla:
+ * - Qué jugador tiene el turno actual.
+ * - Quién tiene un timeout de disparo activo.
+ * - Cuántos turnos ha fallado un jugador (por inactividad).
+ *
+ * Este servicio permite mantener la lógica del turno sincronizada incluso
+ * en escenarios distribuidos (múltiples servidores o procesos).
  */
 @Injectable()
 export class TurnStateRedis {
   constructor(private readonly redisService: RedisService) {}
 
+  /** Acceso directo al cliente Redis */
   private get redis() {
     return this.redisService.getClient();
   }
 
   /**
-   * Establece el jugador que tiene actualmente el turno en una partida.
-   * @param gameId ID de la partida.
-   * @param userId ID del usuario al que pertenece el turno.
+   * Establece en Redis qué jugador tiene actualmente el turno.
+   *
+   * Se guarda como: `game:{gameId}:turn` = userId
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador al que se le asigna el turno
+   * @returns Promise<void>
    */
   async setCurrentTurn(gameId: number, userId: number): Promise<void> {
     await this.redis.set(`game:${gameId}:turn`, userId.toString());
@@ -27,8 +36,9 @@ export class TurnStateRedis {
 
   /**
    * Obtiene el ID del jugador que tiene el turno actual.
-   * @param gameId ID de la partida.
-   * @returns ID del jugador o null si no existe.
+   *
+   * @param gameId ID de la partida
+   * @returns userId del jugador o `null` si no hay valor
    */
   async getCurrentTurn(gameId: number): Promise<number | null> {
     const value = await this.redis.get(`game:${gameId}:turn`);
@@ -36,26 +46,36 @@ export class TurnStateRedis {
   }
 
   /**
-   * Borra el registro del turno actual de la partida.
-   * @param gameId ID de la partida.
+   * Elimina el estado del turno actual de Redis.
+   *
+   * Se debe invocar al finalizar o reiniciar la partida.
+   *
+   * @param gameId ID de la partida
    */
   async clearTurn(gameId: number): Promise<void> {
     await this.redis.del(`game:${gameId}:turn`);
   }
 
   /**
-   * Guarda en Redis el userId que debe disparar, para validar si pierde el turno.
-   * @param gameId ID de la partida.
-   * @param userId ID del usuario que debe actuar.
+   * Marca en Redis quién tiene el timeout activo para validar si pierde el turno.
+   *
+   * Se guarda como: `game:{gameId}:turn:timeout` = userId
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador que debe actuar dentro del tiempo límite
    */
   async setTurnTimeout(gameId: number, userId: number): Promise<void> {
     await this.redis.set(`game:${gameId}:turn:timeout`, userId.toString());
   }
 
   /**
-   * Obtiene el userId que tiene un timeout activo de disparo.
-   * @param gameId ID de la partida.
-   * @returns ID del jugador esperado para disparar o null si no existe.
+   * Obtiene el ID del jugador que tiene un timeout de disparo activo.
+   *
+   * Se usa para validar si el jugador sigue teniendo el turno
+   * cuando se dispara el timeout en memoria.
+   *
+   * @param gameId ID de la partida
+   * @returns userId del jugador o `null` si no hay valor
    */
   async getTurnTimeout(gameId: number): Promise<number | null> {
     const value = await this.redis.get(`game:${gameId}:turn:timeout`);
@@ -63,10 +83,24 @@ export class TurnStateRedis {
   }
 
   /**
-   * Aumenta el contador de turnos fallidos para un jugador en la partida.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
-   * @returns Número total de turnos fallidos acumulados.
+   * Elimina el timeout activo de turno en Redis.
+   *
+   * Se invoca al finalizar correctamente un turno.
+   *
+   * @param gameId ID de la partida
+   */
+  async clearTurnTimeout(gameId: number): Promise<void> {
+    await this.redis.del(`game:${gameId}:turn:timeout`);
+  }
+
+  /**
+   * Incrementa en 1 el contador de turnos perdidos por inactividad.
+   *
+   * Se guarda como: `game:{gameId}:missed:{userId}`
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador que perdió el turno
+   * @returns Nuevo valor del contador tras incrementarlo
    */
   async incrementMissedTurns(gameId: number, userId: number): Promise<number> {
     const key = `game:${gameId}:missed:${userId}`;
@@ -74,16 +108,15 @@ export class TurnStateRedis {
   }
 
   /**
-   * Resetea a 0 el contador de turnos fallidos de un jugador.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
+   * Reinicia el contador de turnos perdidos para un jugador.
+   *
+   * Esto puede usarse si el jugador vuelve a actuar correctamente.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
    */
   async resetMissedTurns(gameId: number, userId: number): Promise<void> {
     const key = `game:${gameId}:missed:${userId}`;
     await this.redis.del(key);
-  }
-
-  async clearTurnTimeout(gameId: number): Promise<void> {
-    await this.redis.del(`game:${gameId}:turn:timeout`);
   }
 }

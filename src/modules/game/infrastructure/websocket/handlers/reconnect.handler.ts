@@ -49,14 +49,13 @@ export class ReconnectHandler {
    * segura y consistente con el estado actual del juego.
    *
    * @param client Nuevo socket del jugador que intenta reconectarse
-   * @returns Promesa que se resuelve cuando todo el proceso ha sido completado
    */
   async handleReconnect(client: SocketWithUser): Promise<void> {
     const userId = client.data.userId;
     const nickname = client.data.nickname || 'Jugador desconocido';
 
     try {
-      // Buscar la última partida a la que el usuario estaba conectado
+      // 1. Buscar el último mapping de partida asociado al userId
       const previousMapping =
         await this.gameSocketMapRedisRepository.getLastGameByUserId(userId);
 
@@ -71,9 +70,8 @@ export class ReconnectHandler {
 
       const { gameId } = previousMapping;
 
-      // Verificar que la partida sigue existiendo
+      // 2. Verificar existencia de la partida
       const game = await this.gameRepository.findByIdWithPlayers(gameId);
-
       if (!game) {
         this.logger.warn(
           `Partida inexistente. No se puede reconectar. gameId=${gameId}`,
@@ -85,7 +83,7 @@ export class ReconnectHandler {
         return;
       }
 
-      // Verificar si el usuario es jugador o espectador en la partida
+      // 3. Verificar si es jugador registrado o espectador
       const [isPlayer, isSpectator] = [
         game.gamePlayers.some((p) => p.userId === userId),
         await this.spectatorRepository.findFirst(gameId, userId),
@@ -104,21 +102,23 @@ export class ReconnectHandler {
         return;
       }
 
-      // Join a la sala y guardar nuevo socket mapping usando el adaptador
+      // 4. Reasignar socket al room de juego
       await this.socketServerAdapter.joinGameRoom(client.id, gameId);
+
+      // 5. Actualizar mapeo de socket y usuario en Redis
       await this.gameSocketMapRedisRepository.save(client.id, userId, gameId);
 
       this.logger.log(
         `Jugador reconectado: userId=${userId}, gameId=${gameId}`,
       );
 
-      // Reenviar estado visual del tablero
+      // 6. Restaurar estado visual del tablero para el jugador
       await this.boardHandler.sendBoardUpdate(client, gameId);
 
-      // Notificar al resto de la sala sobre la reconexión
+      // 7. Notificar a la sala sobre la reconexión
       this.gameEventEmitter.emitPlayerReconnected(gameId, userId, nickname);
 
-      // Confirmar reconexión exitosa al cliente
+      // 8. Confirmar reconexión al cliente
       this.gameEventEmitter.emitReconnectAck(client.id, true);
     } catch (error) {
       this.logger.error(

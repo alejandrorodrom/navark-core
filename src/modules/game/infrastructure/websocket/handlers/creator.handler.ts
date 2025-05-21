@@ -8,17 +8,12 @@ import { EventPayload } from '../events/types/events-payload.type';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
 
 /**
- * Servicio especializado en la gestión del rol de administrador (creador) de partidas,
- * permitiendo la transferencia controlada de privilegios entre jugadores.
+ * Servicio especializado en la gestión del rol de administrador (creador) de partidas.
  *
- * El rol de creador en una partida otorga permisos especiales como:
- * - Capacidad para iniciar la partida
- * - Expulsar jugadores problemáticos
- * - Configurar parámetros del juego
- * - Transferir el rol a otro jugador
- *
- * Esta funcionalidad es especialmente útil cuando el creador original debe abandonar
- * la partida pero desea que ésta continúe bajo la administración de otro jugador de confianza.
+ * Este rol permite:
+ * - Iniciar partidas
+ * - Expulsar jugadores
+ * - Transferir el control a otro jugador
  */
 @Injectable()
 export class CreatorHandler {
@@ -32,21 +27,18 @@ export class CreatorHandler {
   ) {}
 
   /**
-   * Procesa y ejecuta la solicitud de transferencia del rol de creador a otro jugador.
+   * Maneja la solicitud de transferencia de rol de creador a otro jugador conectado.
    *
-   * Este método implementa un flujo completo de validación y ejecución que incluye:
-   * 1. Verificación de existencia de la partida solicitada
-   * 2. Validación de permisos del solicitante (debe ser el creador actual)
-   * 3. Verificación de que el jugador destino esté activamente conectado
-   * 4. Actualización del rol en la base de datos
-   * 5. Notificación a todos los participantes sobre el cambio de administración
+   * Flujo:
+   * 1. Verifica existencia de partida.
+   * 2. Comprueba permisos del solicitante.
+   * 3. Verifica conexión activa del destino.
+   * 4. Actualiza base de datos.
+   * 5. Notifica a todos los jugadores.
    *
-   * El proceso incorpora múltiples validaciones de seguridad para garantizar
-   * que solo transferencias legítimas y autorizadas sean procesadas.
-   *
-   * @param client Socket del cliente que solicita la transferencia (debe ser el creador actual)
-   * @param data Objeto con el ID de la partida y el ID del usuario destino
-   * @returns Promesa que se resuelve cuando todo el proceso ha sido completado
+   * @param client Socket del jugador que solicita la transferencia (debe ser el creador actual).
+   * @param data Contiene el `gameId` y el `targetUserId` que recibirá el rol.
+   * @returns Promesa que se resuelve al finalizar la operación.
    */
   async onCreatorTransfer(
     client: SocketWithUser,
@@ -57,17 +49,14 @@ export class CreatorHandler {
     const requesterNickname = client.data.nickname || 'Desconocido';
 
     this.logger.log(
-      `Solicitud de transferencia de creador: gameId=${gameId}, solicitante=${requesterNickname} (userId=${requesterId}), destino=${targetUserId}`,
+      `Solicitud de transferencia: gameId=${gameId}, de userId=${requesterId} - ${requesterNickname} a userId=${targetUserId}`,
     );
 
     try {
-      // Verificar que la partida exista en la base de datos
+      // 1. Verificar existencia de la partida
       const game = await this.gameRepository.findById(gameId);
-
       if (!game) {
-        this.logger.warn(
-          `Transferencia denegada: partida no encontrada gameId=${gameId}`,
-        );
+        this.logger.warn(`Partida no encontrada: gameId=${gameId}`);
         this.gameEventEmitter.emitCreatorTransferAck(
           client.id,
           false,
@@ -76,10 +65,10 @@ export class CreatorHandler {
         return;
       }
 
-      // Validar que quien solicita la transferencia sea el creador actual
+      // 2. Validar que quien transfiere sea el creador
       if (game.createdById !== requesterId) {
         this.logger.warn(
-          `Transferencia denegada: userId=${requesterId} intentó transferir sin ser creador en gameId=${gameId} (creador actual=${game.createdById})`,
+          `Transferencia denegada: userId=${requesterId} no es el creador actual`,
         );
         this.gameEventEmitter.emitCreatorTransferAck(
           client.id,
@@ -89,11 +78,9 @@ export class CreatorHandler {
         return;
       }
 
-      // Verificar que el destino no sea el mismo creador actual
-      if (game.createdById === targetUserId) {
-        this.logger.warn(
-          `Transferencia redundante: userId=${requesterId} intentó transferir a sí mismo en gameId=${gameId}`,
-        );
+      // 3. Validar que no se transfiera a sí mismo
+      if (targetUserId === requesterId) {
+        this.logger.warn(`Transferencia redundante al mismo creador`);
         this.gameEventEmitter.emitCreatorTransferAck(
           client.id,
           false,
@@ -102,14 +89,13 @@ export class CreatorHandler {
         return;
       }
 
-      // Buscar el socket del jugador destino
+      // 4. Verificar que el usuario destino esté conectado
       const userMap = this.socketServerAdapter.getUsersInGame(gameId);
       const targetSocketIds = userMap.get(targetUserId);
 
-      // Verificar que el jugador destino esté activamente conectado
       if (!targetSocketIds || targetSocketIds.length === 0) {
         this.logger.warn(
-          `Transferencia fallida: usuario destino userId=${targetUserId} no está conectado en gameId=${gameId}`,
+          `Transferencia fallida: userId=${targetUserId} no está conectado`,
         );
         this.gameEventEmitter.emitCreatorTransferAck(
           client.id,
@@ -119,48 +105,41 @@ export class CreatorHandler {
         return;
       }
 
-      // Obtener datos del jugador destino
       const targetSocketId = targetSocketIds[0];
       const targetUserData =
         this.socketServerAdapter.getSocketUserData(targetSocketId);
 
       if (!targetUserData) {
-        this.logger.error(
-          `Error interno: no se pudieron obtener datos de usuario para socketId=${targetSocketId}`,
-        );
+        this.logger.error(`Datos de usuario destino no disponibles`);
         this.gameEventEmitter.emitCreatorTransferAck(
           client.id,
           false,
-          'Error interno al obtener datos del usuario destino',
+          'Error al obtener datos del usuario destino',
         );
         return;
       }
 
-      // Actualizar el creador en la base de datos
+      // 5. Actualizar base de datos con el nuevo creador
       await this.gameRepository.updateGameCreator(gameId, targetUserId);
-      this.logger.debug(
-        `Registro de creador actualizado en base de datos: gameId=${gameId}, nuevoCreador=${targetUserId}`,
-      );
 
-      // Notificar a todos los participantes sobre el cambio de creador
+      // 6. Notificar cambio de creador a todos los jugadores
       this.gameEventEmitter.emitCreatorChanged(
         gameId,
         targetUserId,
         targetUserData.nickname,
       );
 
-      // Confirmar al solicitante que la transferencia fue exitosa
+      // 7. Confirmar al solicitante que fue exitoso
       this.gameEventEmitter.emitCreatorTransferAck(client.id, true);
 
       this.logger.log(
-        `Transferencia de creador exitosa: gameId=${gameId}, anterior=${requesterNickname} (${requesterId}), nuevo=${targetUserData.nickname} (${targetUserId})`,
+        `Transferencia completada: gameId=${gameId}, nuevo creador=${targetUserData.nickname} (userId=${targetUserId})`,
       );
     } catch (error) {
       this.logger.error(
-        `Error al procesar transferencia de creador en gameId=${gameId}`,
+        `Error interno al transferir rol de creador en gameId=${gameId}`,
         error,
       );
-
       this.gameEventEmitter.emitCreatorTransferAck(
         client.id,
         false,

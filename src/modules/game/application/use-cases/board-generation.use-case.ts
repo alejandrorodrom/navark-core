@@ -3,42 +3,31 @@ import { Board, Difficulty, Mode } from '../../domain/models/board.model';
 import { Position, Ship } from '../../domain/models/ship.model';
 
 /**
- * Servicio responsable de la generación de tableros de juego y colocación
- * aleatoria de barcos respetando las reglas del juego.
+ * Caso de uso responsable de generar un tablero global de juego.
  *
- * Este servicio implementa algoritmos para:
- * - Calcular el tamaño óptimo del tablero según dificultad y número de jugadores
- * - Determinar la cantidad y tamaño de barcos para cada dificultad
- * - Colocar barcos aleatoriamente sin colisiones
- * - Adaptar la densidad del tablero según el modo de juego
+ * Este tablero incluye:
+ * - Dimensiones calculadas dinámicamente según dificultad, cantidad de jugadores y modo
+ * - Barcos generados aleatoriamente por jugador, sin colisiones
+ *
+ * La generación respeta restricciones como límite de ocupación del tablero
+ * y número máximo de intentos para evitar colisiones.
  */
 @Injectable()
 export class BoardGenerationUseCase {
   private readonly logger = new Logger(BoardGenerationUseCase.name);
 
-  /** Límite de intentos para colocar barcos sin colisiones */
   private readonly MAX_PLACEMENT_ATTEMPTS = 100;
-
-  /** Tamaño máximo permitido para un tablero */
   private readonly MAX_BOARD_SIZE = 20;
 
   /**
-   * Genera un tablero global compartido para todos los jugadores participantes.
+   * Genera un tablero con todos los barcos colocados para todos los jugadores.
    *
-   * Este método:
-   * 1. Calcula el tamaño adecuado del tablero según la dificultad y cantidad de jugadores
-   * 2. Determina el espacio máximo que pueden ocupar los barcos
-   * 3. Distribuye barcos de tamaños adecuados para cada jugador
-   * 4. Coloca los barcos aleatoriamente evitando colisiones
+   * @param playerIds Lista de IDs de los jugadores que participarán en la partida.
+   * @param difficulty Nivel de dificultad ('easy', 'medium', 'hard') que afecta tamaño del tablero y tipo de barcos.
+   * @param mode Modo de juego ('individual' o 'teams'), utilizado para ajustar la densidad del tablero.
    *
-   * El tablero resultante contiene todos los barcos para todos los jugadores,
-   * cada uno identificado con su propietario correspondiente.
-   *
-   * @param playerIds Array con los IDs de los jugadores participantes
-   * @param difficulty Nivel de dificultad que afecta el tamaño del tablero y los barcos
-   * @param mode Modo de juego (individual o equipos)
-   * @returns Tablero completo con todos los barcos colocados
-   * @throws Error si no es posible colocar todos los barcos sin colisiones
+   * @returns Objeto `Board` que incluye tamaño, barcos y disparos inicializados.
+   * @throws Error si no es posible colocar todos los barcos sin colisiones.
    */
   generateGlobalBoard(
     playerIds: number[],
@@ -47,7 +36,7 @@ export class BoardGenerationUseCase {
   ): Board {
     const playersCount = playerIds.length;
 
-    // Obtener configuración del tablero según dificultad y modo
+    // 1. Determinar el tamaño del tablero y porcentaje máximo de ocupación
     const { size, occupationPercentage } = this.getBoardSettings(
       difficulty,
       playersCount,
@@ -58,19 +47,22 @@ export class BoardGenerationUseCase {
       `Generando tablero: ${size}x${size}, dificultad=${difficulty}, jugadores=${playersCount}, modo=${mode}`,
     );
 
-    // Calcular capacidad del tablero
+    // 2. Calcular el número máximo de celdas ocupables en el tablero
     const totalCells = size * size;
     const maxOccupiedCells = Math.floor(totalCells * occupationPercentage);
 
-    // Determinar tamaños de barcos según dificultad
+    // 3. Obtener la lista de tamaños de barcos por jugador según dificultad
     const shipSizesPerPlayer = this.getShipSizesForDifficulty(difficulty);
+
+    // 4. Calcular el tamaño promedio de un barco
     const averageShipSize =
       shipSizesPerPlayer.reduce((a, b) => a + b, 0) / shipSizesPerPlayer.length;
 
-    // Verificar si hay suficiente espacio para todos los barcos
+    // 5. Estimar cuántas celdas se necesitarían en total para todos los barcos
     const requiredCells =
       playersCount * averageShipSize * shipSizesPerPlayer.length;
 
+    // 6. Validar si hay suficiente espacio disponible
     if (requiredCells > maxOccupiedCells) {
       this.logger.error(
         `Espacio insuficiente: Requerido=${requiredCells}, Disponible=${maxOccupiedCells}`,
@@ -80,16 +72,17 @@ export class BoardGenerationUseCase {
       );
     }
 
-    // Generar y colocar barcos para cada jugador
+    // 7. Iniciar el proceso de colocación de barcos
     const ships: Ship[] = [];
     let shipId = 1;
 
     for (const playerId of playerIds) {
       for (const shipSize of shipSizesPerPlayer) {
+        // 8. Generar un barco aleatorio
         let newShip = this.generateRandomShip(size, shipSize, shipId, playerId);
         let attempts = 0;
 
-        // Intentar colocar el barco sin colisiones
+        // 9. Reintentar hasta ubicar un barco sin colisiones o agotar intentos
         while (
           this.hasCollision(newShip, ships) &&
           attempts < this.MAX_PLACEMENT_ATTEMPTS
@@ -98,7 +91,7 @@ export class BoardGenerationUseCase {
           attempts++;
         }
 
-        // Verificar si se superó el límite de intentos
+        // 10. Si se superan los intentos máximos, lanzar error
         if (attempts >= this.MAX_PLACEMENT_ATTEMPTS) {
           this.logger.error(
             `No se pudo colocar barco: playerId=${playerId}, shipSize=${shipSize}, intentos=${attempts}`,
@@ -113,6 +106,7 @@ export class BoardGenerationUseCase {
       }
     }
 
+    // 11. Finalizar tablero
     this.logger.log(
       `Tablero generado exitosamente: ${ships.length} barcos colocados`,
     );
@@ -121,18 +115,14 @@ export class BoardGenerationUseCase {
   }
 
   /**
-   * Determina las dimensiones y capacidad del tablero según la dificultad,
-   * número de jugadores y modo de juego.
+   * Devuelve la configuración del tablero (tamaño y densidad) según dificultad, modo y número de jugadores.
    *
-   * Los parámetros clave calculados son:
-   * - Tamaño del tablero (dimensión del cuadrado)
-   * - Porcentaje de ocupación máxima permitida
+   * @param difficulty Nivel de dificultad seleccionado.
+   * @param playersCount Número total de jugadores.
+   * @param mode Modo de juego.
    *
-   * @param difficulty Nivel de dificultad (fácil, medio, difícil)
-   * @param playersCount Número de jugadores en la partida
-   * @param mode Modo de juego (individual o equipos)
-   * @returns Configuración con tamaño y porcentaje de ocupación
-   * @private
+   * @returns Objeto con el tamaño del tablero y el porcentaje de ocupación permitido.
+   * @throws Error si la dificultad no es válida.
    */
   private getBoardSettings(
     difficulty: Difficulty,
@@ -143,7 +133,6 @@ export class BoardGenerationUseCase {
     let incrementPerPlayer: number;
     let occupationPercentage: number;
 
-    // Configurar parámetros base según dificultad
     switch (difficulty) {
       case 'easy':
         baseSize = 10;
@@ -165,12 +154,10 @@ export class BoardGenerationUseCase {
         throw new Error('Dificultad no válida');
     }
 
-    // Permitir más densidad de barcos en modo equipos
     if (mode === 'teams') {
       occupationPercentage += 0.05;
     }
 
-    // Calcular tamaño final con límite máximo
     const size = Math.min(
       this.MAX_BOARD_SIZE,
       Math.ceil(baseSize + playersCount * incrementPerPlayer),
@@ -180,42 +167,35 @@ export class BoardGenerationUseCase {
   }
 
   /**
-   * Determina la cantidad y tamaño de barcos a generar para cada jugador
-   * según el nivel de dificultad seleccionado.
+   * Determina los tamaños de los barcos por jugador según la dificultad.
    *
-   * En dificultades más altas, se generan barcos más pequeños que son
-   * más difíciles de encontrar y hundir.
-   *
-   * @param difficulty Nivel de dificultad
-   * @returns Array con los tamaños de barcos a generar
-   * @private
+   * @param difficulty Nivel de dificultad.
+   * @returns Arreglo de longitudes de barcos.
    */
   private getShipSizesForDifficulty(difficulty: Difficulty): number[] {
     switch (difficulty) {
       case 'easy':
-        return [5, 4, 3, 2, 2, 1, 1]; // Barcos más grandes son más fáciles de encontrar
+        return [5, 4, 3, 2, 2, 1, 1];
       case 'medium':
         return [4, 4, 3, 3, 2, 2, 1];
       case 'hard':
-        return [4, 3, 2, 2, 1]; // Barcos más pequeños son más difíciles de encontrar
+        return [4, 3, 2, 2, 1];
       default:
         this.logger.warn(
-          `Dificultad no reconocida: Usando valores por defecto`,
+          'Dificultad no reconocida: Usando configuración por defecto',
         );
-        return [4, 3, 3]; // Configuración por defecto
+        return [4, 3, 3];
     }
   }
 
   /**
-   * Genera un barco de tamaño específico en una posición aleatoria
-   * con orientación aleatoria (horizontal o vertical).
+   * Genera un barco con orientación y posición aleatoria.
    *
-   * @param boardSize Tamaño del tablero
-   * @param shipSize Longitud del barco a generar
-   * @param shipId Identificador único del barco
-   * @param ownerId ID del jugador propietario del barco
-   * @returns Objeto Ship con todas sus posiciones
-   * @private
+   * @param boardSize Tamaño del tablero.
+   * @param shipSize Tamaño del barco.
+   * @param shipId ID único del barco.
+   * @param ownerId ID del jugador propietario del barco.
+   * @returns Objeto `Ship` con las posiciones generadas.
    */
   private generateRandomShip(
     boardSize: number,
@@ -223,13 +203,11 @@ export class BoardGenerationUseCase {
     shipId: number,
     ownerId: number,
   ): Ship {
-    // Determinar orientación aleatoria
     const horizontal = Math.random() < 0.5;
     const maxStart = boardSize - shipSize;
 
     let row: number, col: number;
 
-    // Calcular posición inicial según orientación
     if (horizontal) {
       row = Math.floor(Math.random() * boardSize);
       col = Math.floor(Math.random() * (maxStart + 1));
@@ -238,7 +216,6 @@ export class BoardGenerationUseCase {
       col = Math.floor(Math.random() * boardSize);
     }
 
-    // Generar todas las posiciones que ocupa el barco
     const positions: Position[] = Array.from({ length: shipSize }, (_, i) => ({
       row: row + (horizontal ? 0 : i),
       col: col + (horizontal ? i : 0),
@@ -248,20 +225,18 @@ export class BoardGenerationUseCase {
     return {
       shipId,
       ownerId,
-      teamId: null, // Se asignará después si es modo equipos
+      teamId: null,
       positions,
       isSunk: false,
     };
   }
 
   /**
-   * Verifica si un barco nuevo colisiona con alguno de los barcos ya colocados.
-   * Una colisión ocurre cuando dos barcos ocupan la misma celda del tablero.
+   * Verifica si el nuevo barco colisiona con otros ya colocados.
    *
-   * @param newShip Barco que se intenta colocar
-   * @param existingShips Lista de barcos ya colocados
-   * @returns true si hay colisión, false si el barco puede colocarse
-   * @private
+   * @param newShip Barco que se intenta colocar.
+   * @param existingShips Barcos ya colocados en el tablero.
+   * @returns `true` si hay colisión, `false` si no.
    */
   private hasCollision(newShip: Ship, existingShips: Ship[]): boolean {
     for (const ship of existingShips) {

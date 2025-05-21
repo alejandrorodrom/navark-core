@@ -5,23 +5,24 @@ import { ShotResult, ShotTarget, ShotType } from '../models/shot.model';
 /**
  * Servicio especializado en la evaluación de disparos en el tablero de juego.
  *
- * Este servicio contiene funciones puras del dominio que:
- * - Evalúan impactos en barcos
- * - Generan coordenadas afectadas por diferentes tipos de disparo
- * - Determinan si una coordenada impacta a un aliado
- * - Convierten el formato de Redis (string) a formato limpio de dominio (number)
+ * Contiene lógica pura del dominio relacionada con:
+ * - Impacto de disparos
+ * - Generación de coordenadas según tipo de disparo
+ * - Validación de disparo sobre barcos aliados
+ * - Conversión de formatos desde Redis
  */
 @Injectable()
 export class ShotEvaluatorLogic {
   /**
-   * Evalúa un disparo contra todos los barcos del tablero.
-   * Si impacta un barco, marca la posición como impactada.
-   * Si se impactan todas las posiciones del barco, se marca como hundido.
+   * Evalúa un disparo contra los barcos del tablero.
    *
-   * @param ships Lista de barcos presentes en el tablero
-   * @param row Fila del disparo
-   * @param col Columna del disparo
-   * @returns Resultado del disparo: hit true/false y sunkShipId si aplica
+   * Marca como impactada la posición y si todas las posiciones están impactadas,
+   * marca el barco como hundido.
+   *
+   * @param ships Lista de barcos presentes en el tablero.
+   * @param row Fila objetivo del disparo.
+   * @param col Columna objetivo del disparo.
+   * @returns Resultado del disparo (acierto, y si fue hundimiento).
    */
   static evaluate(ships: Ship[], row: number, col: number): ShotResult {
     for (const ship of ships) {
@@ -29,7 +30,6 @@ export class ShotEvaluatorLogic {
         if (pos.row === row && pos.col === col && !pos.isHit && !ship.isSunk) {
           pos.isHit = true;
 
-          // Si todas las posiciones del barco están impactadas, el barco se hunde
           if (ship.positions.every((p) => p.isHit)) {
             ship.isSunk = true;
             return { hit: true, sunkShipId: ship.shipId };
@@ -40,18 +40,23 @@ export class ShotEvaluatorLogic {
       }
     }
 
-    // Si no se impactó ningún barco
     return { hit: false };
   }
 
   /**
-   * Genera las coordenadas objetivo que deben ser evaluadas según el tipo de disparo.
-   * Asegura que todas las coordenadas generadas estén dentro de los límites del tablero.
+   * Genera las coordenadas objetivo según el tipo de disparo.
    *
-   * @param type Tipo de disparo ('simple', 'cross', 'multi', 'area', 'nuclear')
-   * @param origin Coordenada base del disparo
-   * @param boardSize Tamaño del tablero
-   * @returns Arreglo de coordenadas válidas para evaluar
+   * Tipo de disparo y su patrón de área:
+   * - `'simple'`: solo la coordenada indicada.
+   * - `'cross'`: forma de cruz (+), incluye la coordenada central y 4 adyacentes.
+   * - `'multi'`: coordenada central + 2 aleatorias cercanas.
+   * - `'area'`: cuadrado 2x2 desde la coordenada base.
+   * - `'nuclear'`: rombo con radio 3 (área de 6x6 aprox).
+   *
+   * @param type Tipo de disparo.
+   * @param origin Coordenada base del disparo.
+   * @param boardSize Dimensión del tablero (N x N).
+   * @returns Lista de coordenadas válidas dentro del tablero.
    */
   generateTargetsForShotType(
     type: ShotType,
@@ -61,7 +66,6 @@ export class ShotEvaluatorLogic {
     const targets: ShotTarget[] = [];
     const { row, col } = origin;
 
-    // Función auxiliar para validar límites del tablero
     const isValid = (r: number, c: number) =>
       r >= 0 && r < boardSize && c >= 0 && c < boardSize;
 
@@ -71,7 +75,6 @@ export class ShotEvaluatorLogic {
         break;
 
       case 'cross':
-        // Centro y 4 direcciones cardinales (forma de cruz)
         [
           [0, 0],
           [0, 1],
@@ -86,8 +89,7 @@ export class ShotEvaluatorLogic {
         break;
 
       case 'multi': {
-        // Disparo central + 2 posiciones aleatorias cercanas
-        targets.push({ row, col });
+        targets.push({ row, col }); // Centro
         const offsets: [number, number][] = [];
 
         for (let i = 0; i < 10 && offsets.length < 2; i++) {
@@ -107,7 +109,6 @@ export class ShotEvaluatorLogic {
       }
 
       case 'area':
-        // Cuadrado 2x2 desde la coordenada base
         for (let dr = 0; dr < 2; dr++) {
           for (let dc = 0; dc < 2; dc++) {
             const r = row + dr;
@@ -118,7 +119,6 @@ export class ShotEvaluatorLogic {
         break;
 
       case 'nuclear': {
-        // Forma de rombo con radio 3 (6x6)
         const radius = 3;
         for (let dr = -radius; dr <= radius; dr++) {
           const maxCol = radius - Math.abs(dr);
@@ -132,7 +132,6 @@ export class ShotEvaluatorLogic {
       }
 
       default:
-        // Por defecto, solo la coordenada central
         if (isValid(row, col)) targets.push({ row, col });
         break;
     }
@@ -141,17 +140,18 @@ export class ShotEvaluatorLogic {
   }
 
   /**
-   * Verifica si una posición afecta a un barco aliado.
-   * Considera aliados como:
-   * - El mismo jugador
-   * - Jugadores que estén en el mismo equipo
+   * Determina si una coordenada impactaría un barco aliado.
    *
-   * @param ships Lista de barcos en el tablero
-   * @param row Fila objetivo
-   * @param col Columna objetivo
-   * @param shooterId ID del jugador que dispara
-   * @param teams Mapa de userId a teamId
-   * @returns true si hay un barco aliado en esa posición
+   * Considera aliados como:
+   * - El propio jugador (disparo sobre sus propios barcos)
+   * - Compañeros de equipo (según el mapa `teams`)
+   *
+   * @param ships Lista completa de barcos en el tablero.
+   * @param row Fila objetivo.
+   * @param col Columna objetivo.
+   * @param shooterId ID del jugador que dispara.
+   * @param teams Mapa de userId → teamId.
+   * @returns `true` si hay un barco aliado en esa posición.
    */
   isAlliedShipPosition(
     ships: Ship[],
@@ -174,11 +174,14 @@ export class ShotEvaluatorLogic {
   }
 
   /**
-   * Convierte un mapa de Redis (con claves tipo socketId-userId)
-   * a un mapa de userId numérico para uso en el dominio.
+   * Convierte un mapa de Redis con claves tipo `socketId-userId`
+   * a un mapa plano de `userId: teamId`.
    *
-   * @param teamsRecord Mapa de Redis (Record<string, number>)
-   * @returns Mapa limpio (Record<number, number>) con userId como clave
+   * Ejemplo de entrada: `{ "socket-23": 1, "socket-45": 2 }`
+   * Salida: `{ 23: 1, 45: 2 }`
+   *
+   * @param teamsRecord Mapa de Redis con claves string.
+   * @returns Mapa limpio con claves numéricas.
    */
   convertTeamsFormat(
     teamsRecord: Record<string, number>,
@@ -186,7 +189,6 @@ export class ShotEvaluatorLogic {
     const result: Record<number, number> = {};
 
     for (const [key, teamId] of Object.entries(teamsRecord)) {
-      // Se extrae el último segmento como userId
       const userId = parseInt(key.split('-').pop() || '', 10);
       if (!isNaN(userId)) result[userId] = teamId;
     }

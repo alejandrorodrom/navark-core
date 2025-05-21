@@ -4,9 +4,9 @@ import { GameEvents } from '../constants/game-events.enum';
 import { EventKey, EventPayload } from '../types/events-payload.type';
 
 /**
- * Servicio centralizado para emisión de eventos WebSocket con tipado seguro.
- * Proporciona métodos específicos para los eventos más comunes y un método genérico
- * para cualquier otro evento.
+ * Servicio centralizado para emitir eventos WebSocket tipados durante la partida.
+ * Internamente utiliza el adaptador `SocketServerAdapter` para emitir eventos
+ * a salas, sockets individuales o todos los sockets de un usuario.
  */
 @Injectable()
 export class GameEventEmitter {
@@ -15,10 +15,12 @@ export class GameEventEmitter {
   constructor(private readonly socketServer: SocketServerAdapter) {}
 
   /**
-   * Emite un evento a todos los clientes en una sala de juego específica.
-   * @param gameId ID de la partida (sala)
-   * @param event Tipo de evento a emitir
-   * @param payload Datos del evento con tipado seguro según el tipo de evento
+   * Método genérico para emitir un evento a todos los jugadores dentro de una sala.
+   *
+   * @template T Tipo del evento basado en enum `GameEvents`
+   * @param gameId ID de la sala (normalmente es el ID de la partida)
+   * @param event Nombre del evento a emitir
+   * @param payload Cuerpo del evento con el tipo correspondiente
    */
   emit<T extends EventKey>(
     gameId: string | number,
@@ -29,10 +31,12 @@ export class GameEventEmitter {
   }
 
   /**
-   * Emite un evento a un cliente específico.
-   * @param socketId ID del socket del cliente
-   * @param event Tipo de evento a emitir
-   * @param payload Datos del evento con tipado seguro según el tipo de evento
+   * Método genérico para emitir un evento a un socket específico (cliente).
+   *
+   * @template T Tipo del evento
+   * @param socketId ID del socket al que se desea enviar el evento
+   * @param event Evento a emitir
+   * @param payload Cuerpo del evento
    */
   emitToClient<T extends EventKey>(
     socketId: string,
@@ -43,10 +47,13 @@ export class GameEventEmitter {
   }
 
   /**
-   * Emite un evento a un usuario específico (puede tener múltiples conexiones).
+   * Método genérico para emitir un evento a todas las conexiones (sockets) de un usuario.
+   * Útil cuando el usuario tiene múltiples pestañas abiertas o está conectado desde distintos dispositivos.
+   *
+   * @template T Tipo del evento
    * @param userId ID del usuario
-   * @param event Tipo de evento a emitir
-   * @param payload Datos del evento con tipado seguro según el tipo de evento
+   * @param event Evento a emitir
+   * @param payload Cuerpo del evento
    */
   emitToUser<T extends EventKey>(
     userId: number,
@@ -56,18 +63,14 @@ export class GameEventEmitter {
     this.socketServer.emitToUser(userId, event, payload);
   }
 
-  // ===== MÉTODOS DE CONVENIENCIA PARA EVENTOS COMUNES =====
+  // ==== MÉTODOS SEMÁNTICOS ====
 
-  /**
-   * Emite un evento que notifica que un jugador se ha unido al juego.
-   */
+  /** Notifica a la sala que un jugador se ha unido */
   emitPlayerJoined(gameId: number, socketId: string | number): void {
     this.emit(gameId, GameEvents.PLAYER_JOINED, { socketId });
   }
 
-  /**
-   * Emite un evento que confirma la unión exitosa como jugador.
-   */
+  /** Confirma al cliente que se ha unido correctamente como jugador */
   emitPlayerJoinedAck(
     socketId: string,
     data: EventPayload<GameEvents.PLAYER_JOINED_ACK>,
@@ -75,9 +78,7 @@ export class GameEventEmitter {
     this.emitToClient(socketId, GameEvents.PLAYER_JOINED_ACK, data);
   }
 
-  /**
-   * Emite un evento que confirma la unión exitosa como espectador.
-   */
+  /** Confirma al cliente que se ha unido correctamente como espectador */
   emitSpectatorJoinedAck(
     socketId: string,
     data: EventPayload<GameEvents.SPECTATOR_JOINED_ACK>,
@@ -85,30 +86,22 @@ export class GameEventEmitter {
     this.emitToClient(socketId, GameEvents.SPECTATOR_JOINED_ACK, data);
   }
 
-  /**
-   * Emite un evento informando que se denegó la unión.
-   */
+  /** Notifica al cliente que su intento de unión fue denegado */
   emitJoinDenied(socketId: string, reason: string): void {
     this.emitToClient(socketId, GameEvents.JOIN_DENIED, { reason });
   }
 
-  /**
-   * Emite un evento de cambio de turno a todos los jugadores.
-   */
+  /** Notifica a todos los jugadores de un cambio de turno */
   emitTurnChanged(gameId: number, userId: number): void {
     this.emit(gameId, GameEvents.TURN_CHANGED, { userId });
   }
 
-  /**
-   * Emite un evento de timeout de turno a todos los jugadores.
-   */
+  /** Notifica a todos los jugadores que un turno fue perdido por timeout */
   emitTurnTimeout(gameId: number, userId: number): void {
     this.emit(gameId, GameEvents.TURN_TIMEOUT, { userId });
   }
 
-  /**
-   * Emite un evento de finalización de juego con resultados.
-   */
+  /** Notifica el fin de la partida junto con los resultados */
   emitGameEnded(
     gameId: number,
     data: EventPayload<GameEvents.GAME_ENDED>,
@@ -116,32 +109,22 @@ export class GameEventEmitter {
     this.emit(gameId, GameEvents.GAME_ENDED, data);
   }
 
-  /**
-   * Emite un evento que notifica que un jugador ha sido eliminado.
-   */
+  /** Notifica que un jugador ha sido eliminado de la partida */
   emitPlayerEliminated(gameId: number, userId: number): void {
     this.emit(gameId, GameEvents.PLAYER_ELIMINATED, { userId });
   }
 
-  /**
-   * Emite un evento que notifica que un jugador ha sido expulsado.
-   */
+  /** Expulsa a un socket específico y lo desconecta */
   emitPlayerKicked(socketId: string, reason: string): void {
     this.socketServer.kickPlayerBySocketId(socketId, reason);
   }
 
-  /**
-   * Emite un evento que notifica que un jugador ha sido expulsado, usando el userId
-   * en lugar del socketId. Útil para expulsar a un jugador que tiene múltiples
-   * conexiones o cuando no conocemos su socketId actual.
-   */
+  /** Expulsa a todos los sockets de un usuario identificado por ID */
   emitPlayerKickedByUserId(userId: number, reason: string): void {
     this.socketServer.kickPlayerByUserId(userId, reason);
   }
 
-  /**
-   * Emite un evento que notifica sobre el resultado de un disparo.
-   */
+  /** Emite a la sala el resultado de un disparo */
   emitPlayerFired(
     gameId: number,
     data: EventPayload<GameEvents.PLAYER_FIRED>,
@@ -149,9 +132,7 @@ export class GameEventEmitter {
     this.emit(gameId, GameEvents.PLAYER_FIRED, data);
   }
 
-  /**
-   * Emite un evento de confirmación de disparo al jugador que disparó.
-   */
+  /** Confirma al jugador que su disparo fue procesado */
   emitPlayerFireAck(
     socketId: string,
     data: EventPayload<GameEvents.PLAYER_FIRE_ACK>,
@@ -159,9 +140,7 @@ export class GameEventEmitter {
     this.emitToClient(socketId, GameEvents.PLAYER_FIRE_ACK, data);
   }
 
-  /**
-   * Emite un evento de actualización del tablero a un jugador específico.
-   */
+  /** Actualiza el tablero de un jugador específico */
   emitBoardUpdate(
     userId: number,
     data: EventPayload<GameEvents.BOARD_UPDATE>,
@@ -169,66 +148,47 @@ export class GameEventEmitter {
     this.emitToUser(userId, GameEvents.BOARD_UPDATE, data);
   }
 
-  /**
-   * Emite un evento de error a un cliente específico.
-   */
+  /** Notifica un error al cliente */
   emitError(socketId: string, message: string, code?: string): void {
     this.emitToClient(socketId, GameEvents.ERROR, { message, code });
   }
 
-  /**
-   * Emite un evento que notifica que todos los jugadores están listos.
-   */
+  /** Notifica que todos los jugadores han marcado "listo" */
   emitAllReady(gameId: number): void {
     this.emit(gameId, GameEvents.ALL_READY, null);
   }
 
-  /**
-   * Emite un evento que notifica que el juego ha sido abandonado.
-   */
+  /** Notifica que la partida fue abandonada */
   emitGameAbandoned(gameId: number): void {
     this.emit(gameId, GameEvents.GAME_ABANDONED, null);
   }
 
-  /**
-   * Emite un evento que notifica que el juego ha comenzado.
-   */
+  /** Notifica que la partida ha comenzado */
   emitGameStarted(gameId: number): void {
     this.emit(gameId, GameEvents.GAME_STARTED, { gameId });
   }
 
-  /**
-   * Emite un evento de confirmación de inicio de juego.
-   */
+  /** Confirma al cliente que el juego comenzó (o falló) */
   emitGameStartAck(socketId: string, success: boolean, error?: string): void {
     this.emitToClient(socketId, GameEvents.GAME_START_ACK, { success, error });
   }
 
-  /**
-   * Emite un evento que notifica a todos los jugadores en una sala que
-   * un jugador específico está listo.
-   */
+  /** Notifica que un jugador está listo */
   emitPlayerReadyNotify(gameId: number, socketId: string): void {
     this.emit(gameId, GameEvents.PLAYER_READY_NOTIFY, { socketId });
   }
 
-  /**
-   * Emite un evento de confirmación de que un jugador está listo.
-   */
+  /** Confirma al jugador que su estado de "listo" fue recibido */
   emitPlayerReadyAck(socketId: string, success: boolean): void {
     this.emitToClient(socketId, GameEvents.PLAYER_READY_ACK, { success });
   }
 
-  /**
-   * Emite un evento informando que un jugador ha abandonado la partida.
-   */
+  /** Notifica a la sala que un jugador abandonó la partida */
   emitPlayerLeft(gameId: number, userId: number, nickname: string): void {
     this.emit(gameId, GameEvents.PLAYER_LEFT, { userId, nickname });
   }
 
-  /**
-   * Emite un evento de cambio de creador a todos los jugadores de una sala.
-   */
+  /** Notifica a la sala que se ha cambiado el creador */
   emitCreatorChanged(
     gameId: number,
     newCreatorUserId: number,
@@ -240,9 +200,7 @@ export class GameEventEmitter {
     });
   }
 
-  /**
-   * Emite un evento de confirmación de transferencia de creador.
-   */
+  /** Confirma al cliente que la transferencia de creador fue procesada */
   emitCreatorTransferAck(
     socketId: string,
     success: boolean,
@@ -254,16 +212,12 @@ export class GameEventEmitter {
     });
   }
 
-  /**
-   * Emite un evento que notifica que un jugador ha sido asignado a un equipo.
-   */
+  /** Notifica a la sala que un jugador fue asignado a un equipo */
   emitPlayerTeamAssigned(gameId: number, socketId: string, team: number): void {
     this.emit(gameId, GameEvents.PLAYER_TEAM_ASSIGNED, { socketId, team });
   }
 
-  /**
-   * Emite un evento que notifica sobre el estado del arma nuclear.
-   */
+  /** Emite información sobre el estado del arma nuclear de un jugador */
   emitNuclearStatus(
     gameId: number,
     progress: number,
@@ -277,9 +231,7 @@ export class GameEventEmitter {
     });
   }
 
-  /**
-   * Emite un evento que notifica que un jugador se ha reconectado.
-   */
+  /** Notifica a la sala que un jugador se ha reconectado */
   emitPlayerReconnected(
     gameId: number,
     userId: number,
@@ -288,23 +240,17 @@ export class GameEventEmitter {
     this.emit(gameId, GameEvents.PLAYER_RECONNECTED, { userId, nickname });
   }
 
-  /**
-   * Emite un evento de confirmación de reconexión exitosa.
-   */
+  /** Confirma al cliente que se reconectó exitosamente */
   emitReconnectAck(socketId: string, success: boolean): void {
     this.emitToClient(socketId, GameEvents.RECONNECT_ACK, { success });
   }
 
-  /**
-   * Emite un evento informando que la reconexión falló.
-   */
+  /** Notifica al cliente que la reconexión ha fallado */
   emitReconnectFailed(socketId: string, reason: string): void {
     this.emitToClient(socketId, GameEvents.RECONNECT_FAILED, { reason });
   }
 
-  /**
-   * Emite un evento de latido (heartbeat) para mantener la conexión activa.
-   */
+  /** Evento de latido para mantener conexión activa */
   emitHeartbeat(socketId: string): void {
     this.emitToClient(socketId, GameEvents.HEARTBEAT, null);
   }

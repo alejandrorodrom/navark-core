@@ -5,14 +5,14 @@ import { TeamStateRedis } from '../redis/team-state.redis';
 import { NuclearStateRedis } from '../redis/nuclear-state.redis';
 
 /**
- * Servicio responsable de limpiar los estados almacenados en Redis
- * relacionados con partidas finalizadas o abandonadas.
+ * Servicio orquestador responsable de limpiar los estados en Redis
+ * asociados a una partida finalizada o abandonada.
  *
- * Este servicio coordina la limpieza de:
- * - Estados de turnos
- * - Estados de preparación de jugadores
- * - Asignaciones de equipos
- * - Estados de armas nucleares
+ * Se encarga de delegar la limpieza en los submódulos Redis correspondientes:
+ * - Turnos
+ * - Estado de "listo" por jugador
+ * - Asignación de equipos
+ * - Progreso de armamento nuclear
  */
 @Injectable()
 export class RedisCleanerOrchestrator {
@@ -26,13 +26,15 @@ export class RedisCleanerOrchestrator {
   ) {}
 
   /**
-   * Limpia todos los estados en Redis relacionados con una partida específica.
-   * Este método debe llamarse cuando una partida finaliza o es abandonada.
+   * Elimina todos los datos temporales de Redis asociados a una partida específica.
    *
-   * Ejecuta las operaciones de limpieza en paralelo para optimizar el rendimiento.
+   * Este método debe invocarse al terminar o abandonar una partida,
+   * para evitar dejar estados huérfanos en memoria.
    *
-   * @param gameId Identificador de la partida cuyos estados serán eliminados
-   * @returns Promise que se resuelve cuando todas las operaciones de limpieza han finalizado
+   * Se ejecutan todas las limpiezas en paralelo con `Promise.all`.
+   *
+   * @param gameId ID único de la partida a limpiar
+   * @returns Promise<void>
    */
   async clearGameRedisState(gameId: number): Promise<void> {
     this.logger.log(

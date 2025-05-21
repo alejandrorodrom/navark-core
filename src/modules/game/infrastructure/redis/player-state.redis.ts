@@ -2,23 +2,31 @@ import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../../../redis/redis.service';
 
 /**
- * PlayerStateRedis gestiona información individual de jugadores,
- * como abandono de la partida (por inactividad u otros motivos).
+ * Servicio responsable de administrar el estado de abandono de jugadores en Redis.
+ *
+ * Un jugador marcado como "abandonado" ya no puede reconectarse a la partida.
+ * Esto se aplica cuando:
+ * - El jugador pierde conexión y excede el tiempo permitido
+ * - El jugador acumula turnos sin acción
+ * - El jugador abandona voluntariamente
  */
 @Injectable()
 export class PlayerStateRedis {
   constructor(private readonly redisService: RedisService) {}
 
+  /** Acceso directo al cliente de Redis */
   private get redis() {
     return this.redisService.getClient();
   }
 
   /**
-   * Marca a un jugador como "abandonado" en una partida.
-   * Esto impide que pueda volver a reconectarse como jugador.
+   * Marca a un jugador como "abandonado" en una partida específica.
    *
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
+   * Este flag puede ser consultado para denegar la reconexión a esa partida.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
+   * @returns Promise<void>
    */
   async markAsAbandoned(gameId: number, userId: number): Promise<void> {
     const key = `game:${gameId}:abandoned:${userId}`;
@@ -26,11 +34,11 @@ export class PlayerStateRedis {
   }
 
   /**
-   * Verifica si un jugador ha sido marcado como "abandonado" en una partida.
+   * Verifica si un jugador ha sido marcado como abandonado en una partida.
    *
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
-   * @returns `true` si fue abandonado, `false` en caso contrario.
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
+   * @returns true si fue marcado como abandonado, false si no
    */
   async isAbandoned(gameId: number, userId: number): Promise<boolean> {
     const key = `game:${gameId}:abandoned:${userId}`;
@@ -39,10 +47,12 @@ export class PlayerStateRedis {
   }
 
   /**
-   * Elimina el estado de abandono de un jugador (opcional).
+   * Elimina el estado de abandono de un jugador específico.
    *
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
+   * Este método puede usarse si se revierte una expulsión.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
    */
   async clearAbandoned(gameId: number, userId: number): Promise<void> {
     const key = `game:${gameId}:abandoned:${userId}`;
@@ -51,9 +61,10 @@ export class PlayerStateRedis {
 
   /**
    * Limpia el estado de abandono de todos los jugadores de una partida.
-   * Usado al terminar o resetear una partida.
    *
-   * @param gameId ID de la partida.
+   * Este método debe ejecutarse cuando una partida finaliza o se reinicia.
+   *
+   * @param gameId ID de la partida
    */
   async clearAllAbandoned(gameId: number): Promise<void> {
     const keys = await this.redis.keys(`game:${gameId}:abandoned:*`);

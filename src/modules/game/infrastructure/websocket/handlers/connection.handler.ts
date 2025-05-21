@@ -5,22 +5,16 @@ import { SocketWithUser } from '../../../domain/types/socket.types';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
 import { GameRepository } from '../../../domain/repository/game.repository';
 import { GameSocketMapRedisRepository } from '../../repository/redis/game-socket-map.redis.repository';
-import { GameEvents } from '../events/constants/game-events.enum';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
 
 /**
- * Servicio responsable de gestionar los ciclos de vida de las conexiones WebSocket
- * para las sesiones de juego multijugador en tiempo real.
+ * Servicio encargado de gestionar las conexiones y desconexiones de jugadores en WebSocket.
  *
- * Este componente crítico de la infraestructura se encarga de:
- * - Registrar nuevas conexiones de clientes
- * - Procesar las desconexiones inesperadas o voluntarias
- * - Mantener la integridad de las partidas cuando los jugadores se desconectan
- * - Reasignar roles de administración (creador) cuando es necesario
- * - Eliminar partidas abandonadas para liberar recursos
- *
- * El manejo adecuado de conexiones es esencial para proporcionar una
- * experiencia robusta y resiliente en un entorno de juego en línea.
+ * Se encarga de:
+ * - Registrar nuevas conexiones.
+ * - Procesar desconexiones inesperadas.
+ * - Eliminar partidas vacías.
+ * - Transferir el rol de creador si es necesario.
  */
 @Injectable()
 export class ConnectionHandler {
@@ -36,14 +30,9 @@ export class ConnectionHandler {
   ) {}
 
   /**
-   * Registra y procesa la conexión inicial de un cliente WebSocket al servidor.
+   * Registra una nueva conexión de un jugador al servidor WebSocket.
    *
-   * Esta función se ejecuta automáticamente cuando un cliente establece
-   * una nueva conexión WebSocket con el servidor de juego. En este punto,
-   * el cliente aún no está asociado a ninguna partida específica.
-   *
-   * @param client Objeto socket del cliente recién conectado, que incluye
-   *               datos de identificación y autenticación
+   * @param client Socket del jugador recién conectado
    */
   handleConnection(client: SocketWithUser): void {
     const userId = client.data?.userId || 'anónimo';
@@ -55,23 +44,10 @@ export class ConnectionHandler {
   }
 
   /**
-   * Gestiona de forma integral la desconexión de un cliente del servidor WebSocket.
+   * Gestiona la desconexión de un jugador del servidor.
+   * Se encarga de verificar su partida, notificar a los demás, y reasignar el rol de creador si aplica.
    *
-   * Esta función es crucial para mantener la integridad del juego cuando los jugadores
-   * se desconectan (ya sea por cierre voluntario, problemas de red, etc.). Realiza
-   * las siguientes operaciones vitales:
-   *
-   * 1. Identifica la partida a la que pertenecía el cliente desconectado
-   * 2. Notifica a los demás jugadores sobre la desconexión
-   * 3. Elimina registros de mapeo del socket en Redis
-   * 4. Si era el creador, transfiere los privilegios a otro jugador
-   * 5. Si era el último jugador, marca la partida como abandonada y libera recursos
-   *
-   * El manejo correcto de las desconexiones evita partidas "zombies" y garantiza
-   * que los recursos del servidor se liberen adecuadamente cuando ya no son necesarios.
-   *
-   * @param client Objeto socket del cliente que se ha desconectado
-   * @returns Promesa que se resuelve cuando se han completado todas las operaciones de limpieza
+   * @param client Socket del jugador desconectado
    */
   async handleDisconnect(client: SocketWithUser): Promise<void> {
     const userId = client.data?.userId || 'no autenticado';
@@ -82,73 +58,62 @@ export class ConnectionHandler {
     );
 
     try {
-      // Obtener el mapeo de este socket a una partida específica
+      // 1. Obtener mapeo socket ↔ user/game
       const mapping = await this.gameSocketMapRedisRepository.get(client.id);
-
       if (!mapping) {
-        this.logger.warn(
-          `No se encontró mapeo para socketId=${client.id}. El cliente no estaba en ninguna partida.`,
-        );
+        this.logger.warn(`No se encontró mapeo para socketId=${client.id}.`);
         return;
       }
 
       const { gameId, userId } = mapping;
 
       this.logger.log(
-        `Procesando desconexión de partida: gameId=${gameId}, userId=${userId}, socketId=${client.id}`,
+        `Procesando desconexión: gameId=${gameId}, userId=${userId}`,
       );
 
-      // Eliminar el mapeo del socket en Redis
+      // 2. Eliminar mapeo de Redis
       await this.gameSocketMapRedisRepository.delete(client.id);
-      this.logger.debug(`Mapeo eliminado de Redis para socketId=${client.id}`);
+      this.logger.debug(`Mapeo eliminado: socketId=${client.id}`);
 
-      // Verificar que la partida exista en la base de datos
+      // 3. Obtener datos de la partida
       const game = await this.gameRepository.findById(gameId);
       if (!game) {
-        this.logger.warn(
-          `Partida inexistente en base de datos: gameId=${gameId}. Omitiendo proceso de desconexión.`,
-        );
+        this.logger.warn(`Partida gameId=${gameId} no encontrada.`);
         return;
       }
 
-      // Notificar a todos los clientes en la sala sobre la desconexión
+      // 4. Notificar desconexión al resto
       this.gameEventEmitter.emitPlayerLeft(
         gameId,
         userId,
         client.data.nickname || 'Jugador desconocido',
       );
 
-      // Verificar si la sala ha quedado vacía
+      // 5. Verificar si hay sockets restantes en la sala
       const allSocketIds = this.socketServerAdapter.getSocketsInGame(gameId);
       const remainingSocketIds = allSocketIds.filter((id) => id !== client.id);
 
       this.logger.debug(
-        `Estado de la sala: gameId=${gameId}, jugadores restantes=${remainingSocketIds.length}`,
+        `Sala gameId=${gameId}, sockets restantes=${remainingSocketIds.length}`,
       );
 
-      // Si no quedan jugadores, eliminar la partida y liberar recursos
+      // 6. Si no queda nadie, eliminar la partida
       if (remainingSocketIds.length === 0) {
         this.logger.warn(
-          `Partida vacía detectada. Iniciando proceso de eliminación para gameId=${gameId}.`,
+          `Partida vacía detectada. Eliminando gameId=${gameId}`,
         );
 
-        // Emitir evento de juego abandonado y expulsar a todos los jugadores
-        this.gameEventEmitter.emitGameAbandoned(gameId);
-        await this.lobbyManager.kickPlayersFromRoom(gameId);
-
-        // Eliminar datos de la partida tanto en BD como en Redis
         await Promise.all([
           this.gameRepository.removeAbandonedGames(gameId),
           this.redisCleanerService.clearGameRedisState(gameId),
+          this.lobbyManager.kickPlayersFromRoom(gameId),
         ]);
 
-        this.logger.log(
-          `Partida gameId=${gameId} eliminada correctamente por abandono.`,
-        );
+        this.logger.log(`Partida gameId=${gameId} eliminada por abandono.`);
         return;
       }
 
-      // Si el jugador desconectado era el creador, reasignar el rol a otro jugador
+      // 7. Si el jugador era el creador, reasignar creador
       if (game.createdById === userId) {
         await this.handleCreatorDisconnection(
           gameId,
@@ -165,11 +130,11 @@ export class ConnectionHandler {
   }
 
   /**
-   * Maneja la desconexión del creador de la partida, transfiriendo el rol a otro jugador
+   * Reasigna el rol de creador si el jugador desconectado era el creador original.
    *
    * @param gameId ID de la partida
-   * @param remainingSocketIds Lista de IDs de sockets que permanecen en la partida
-   * @param disconnectedUserId ID del usuario que se desconectó (el creador)
+   * @param remainingSocketIds Lista de sockets restantes en la sala
+   * @param disconnectedUserId ID del usuario que se desconectó
    * @private
    */
   private async handleCreatorDisconnection(
@@ -178,14 +143,13 @@ export class ConnectionHandler {
     disconnectedUserId: number,
   ): Promise<void> {
     this.logger.warn(
-      `Creador (userId=${disconnectedUserId}) desconectado. Buscando nuevo creador para gameId=${gameId}.`,
+      `Creador desconectado (userId=${disconnectedUserId}). Buscando nuevo creador para gameId=${gameId}`,
     );
 
-    // Seleccionar el primer socket disponible como nuevo creador
     const fallbackSocketId = remainingSocketIds[0];
     if (!fallbackSocketId) {
       this.logger.error(
-        `No hay sockets restantes para transferir rol de creador en gameId=${gameId}`,
+        `No hay sockets restantes para transferir el rol de creador.`,
       );
       return;
     }
@@ -195,7 +159,7 @@ export class ConnectionHandler {
 
     if (!socketUserData) {
       this.logger.error(
-        `Error al reasignar creador: No se encontraron datos de usuario para socketId=${fallbackSocketId}`,
+        `No se pudo obtener datos del nuevo creador (socketId=${fallbackSocketId})`,
       );
       return;
     }
@@ -203,18 +167,15 @@ export class ConnectionHandler {
     const { userId, nickname } = socketUserData;
 
     try {
-      // Actualizar el creador en la base de datos
       await this.gameRepository.updateGameCreator(gameId, userId);
-
-      // Notificar a todos los jugadores sobre el cambio de creador
       this.gameEventEmitter.emitCreatorChanged(gameId, userId, nickname);
 
       this.logger.log(
-        `Nuevo creador asignado automáticamente: userId=${userId}, nickname=${nickname} para gameId=${gameId}`,
+        `Nuevo creador asignado: userId=${userId}, nickname=${nickname}`,
       );
     } catch (error) {
       this.logger.error(
-        `Error al transferir rol de creador en gameId=${gameId}`,
+        `Error al reasignar el rol de creador para gameId=${gameId}`,
         error,
       );
     }

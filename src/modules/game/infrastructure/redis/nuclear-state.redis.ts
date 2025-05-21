@@ -2,22 +2,28 @@ import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../../../redis/redis.service';
 
 /**
- * NuclearStateRedis gestiona el estado relacionado a la bomba nuclear
- * para cada jugador en una partida, utilizando Redis como almacenamiento rápido.
+ * Servicio encargado de gestionar el estado nuclear de cada jugador en una partida.
+ *
+ * Utiliza Redis para persistir de forma rápida:
+ * - El progreso hacia la bomba nuclear
+ * - La disponibilidad de uso
+ * - El uso final de la bomba
  */
 @Injectable()
 export class NuclearStateRedis {
   constructor(private readonly redisService: RedisService) {}
 
+  /** Acceso directo al cliente Redis */
   private get redis() {
     return this.redisService.getClient();
   }
 
   /**
-   * Incrementa el contador de progresos hacia desbloquear la bomba nuclear.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
-   * @returns Nuevo valor del progreso tras incrementar.
+   * Incrementa el contador de disparos acertados hacia el desbloqueo nuclear.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
+   * @returns Nuevo valor del progreso
    */
   async incrementNuclearProgress(
     gameId: number,
@@ -28,9 +34,10 @@ export class NuclearStateRedis {
   }
 
   /**
-   * Resetea el contador de progresos de bomba nuclear para un jugador.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
+   * Reinicia el progreso nuclear del jugador a cero.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
    */
   async resetNuclearProgress(gameId: number, userId: number): Promise<void> {
     const key = `game:${gameId}:nuclear:${userId}:progress`;
@@ -38,9 +45,10 @@ export class NuclearStateRedis {
   }
 
   /**
-   * Marca que un jugador ha desbloqueado la bomba nuclear.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
+   * Marca que el jugador ha desbloqueado la bomba nuclear.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
    */
   async unlockNuclear(gameId: number, userId: number): Promise<void> {
     const key = `game:${gameId}:nuclear:${userId}:available`;
@@ -48,10 +56,11 @@ export class NuclearStateRedis {
   }
 
   /**
-   * Verifica si un jugador ha desbloqueado la bomba nuclear.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
-   * @returns `true` si la bomba está disponible, de lo contrario `false`.
+   * Verifica si el jugador tiene la bomba nuclear disponible.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
+   * @returns `true` si está disponible, `false` en caso contrario
    */
   async hasNuclearAvailable(gameId: number, userId: number): Promise<boolean> {
     const key = `game:${gameId}:nuclear:${userId}:available`;
@@ -60,9 +69,10 @@ export class NuclearStateRedis {
   }
 
   /**
-   * Marca que un jugador ya utilizó su bomba nuclear.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
+   * Marca que el jugador ya usó la bomba nuclear.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
    */
   async markNuclearUsed(gameId: number, userId: number): Promise<void> {
     const key = `game:${gameId}:nuclear:${userId}:used`;
@@ -70,10 +80,11 @@ export class NuclearStateRedis {
   }
 
   /**
-   * Verifica si un jugador ya usó su bomba nuclear.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
-   * @returns `true` si ya la usó, de lo contrario `false`.
+   * Verifica si el jugador ya utilizó su bomba nuclear.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
+   * @returns `true` si ya fue usada, `false` si aún no
    */
   async hasNuclearUsed(gameId: number, userId: number): Promise<boolean> {
     const key = `game:${gameId}:nuclear:${userId}:used`;
@@ -82,11 +93,11 @@ export class NuclearStateRedis {
   }
 
   /**
-   * Obtiene el progreso actual de disparos acertados de un jugador
-   * hacia el desbloqueo de la bomba nuclear.
-   * @param gameId ID de la partida.
-   * @param userId ID del jugador.
-   * @returns Progreso actual (número de aciertos).
+   * Devuelve el progreso actual de disparos acertados hacia el desbloqueo nuclear.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del jugador
+   * @returns Número de aciertos acumulados
    */
   async getNuclearProgress(gameId: number, userId: number): Promise<number> {
     const key = `game:${gameId}:nuclear:${userId}:progress`;
@@ -95,8 +106,11 @@ export class NuclearStateRedis {
   }
 
   /**
-   * Limpia completamente todos los datos nucleares asociados a una partida.
-   * @param gameId ID de la partida.
+   * Limpia todos los datos nucleares relacionados a una partida.
+   *
+   * Borra cualquier rastro de progreso, desbloqueo y uso nuclear.
+   *
+   * @param gameId ID de la partida
    */
   async clearNuclear(gameId: number): Promise<void> {
     const keys = await this.redis.keys(`game:${gameId}:nuclear:*`);

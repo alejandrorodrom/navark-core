@@ -6,12 +6,14 @@ import { TeamStateRedis } from '../../infrastructure/redis/team-state.redis';
 import { ShotEvaluatorLogic } from '../../domain/logic/shot-evaluator.logic';
 
 /**
- * Servicio de aplicación que orquesta la lógica de disparos:
- * - Genera coordenadas según el tipo de disparo
- * - Filtra objetivos inválidos (ya disparados o aliados)
- * - Evalúa impactos y hundimientos
- * - Registra el disparo principal en base de datos
- * - Actualiza el tablero con disparos visuales
+ * Caso de uso que orquesta la ejecución de un disparo durante la partida.
+ *
+ * Este servicio gestiona:
+ * - Validación de objetivos (ya disparados o aliados)
+ * - Generación de coordenadas afectadas por el tipo de disparo
+ * - Evaluación de impactos y hundimientos
+ * - Registro del disparo principal en la base de datos
+ * - Actualización del tablero en memoria
  */
 @Injectable()
 export class FireShotUseCase {
@@ -24,10 +26,15 @@ export class FireShotUseCase {
   ) {}
 
   /**
-   * Orquesta el disparo de un jugador en una partida.
+   * Registra un disparo ejecutado por un jugador.
    *
-   * @param params Parámetros del disparo incluyendo jugador, tipo, objetivo y tablero actual
-   * @returns Disparo principal registrado y tablero con disparos actualizados
+   * Genera los objetivos afectados por el tipo de disparo, filtra los inválidos,
+   * evalúa impactos, registra el disparo principal y actualiza el tablero.
+   *
+   * @param params Información del disparo: ID de juego, jugador, tipo, objetivo inicial y tablero actual.
+   * @returns Objeto con el disparo principal registrado y el tablero actualizado con todos los impactos.
+   *
+   * @throws Error si no se logra registrar el disparo principal.
    */
   async registerShot(params: {
     gameId: number;
@@ -41,11 +48,11 @@ export class FireShotUseCase {
   }> {
     const { gameId, shooterId, type, target, board } = params;
 
-    // Obtiene los equipos desde Redis y los convierte a un formato usable
+    // 1. Obtener equipos desde Redis y convertirlos a formato usable
     const teamsRaw = await this.teamStateRedis.getAllTeams(gameId);
     const teams = this.shotEvaluator.convertTeamsFormat(teamsRaw);
 
-    // Genera las coordenadas afectadas según el tipo de disparo
+    // 2. Generar coordenadas afectadas según el tipo de disparo
     const targets = this.shotEvaluator.generateTargetsForShotType(
       type,
       target,
@@ -56,13 +63,11 @@ export class FireShotUseCase {
       `Generadas ${targets.length} coordenadas para disparo tipo ${type}`,
     );
 
-    // El disparo principal que será registrado en base de datos
+    // 3. Inicializar estructuras de control
     let primaryShot: Shot | null = null;
-
-    // Lista de objetivos válidos después de filtrar repetidos y aliados
     const validTargets: ShotTarget[] = [];
 
-    // Filtra los objetivos que ya han sido disparados o que contienen barcos aliados
+    // 4. Filtrar coordenadas que ya fueron disparadas o contienen barcos aliados
     for (const currentTarget of targets) {
       const alreadyShot = board.shots?.some(
         (shot) =>
@@ -95,7 +100,7 @@ export class FireShotUseCase {
       validTargets.push(currentTarget);
     }
 
-    // Si no se encontraron objetivos válidos, usar solo el objetivo original
+    // 5. Si no hay objetivos válidos, usar solo el original
     if (validTargets.length === 0) {
       this.logger.warn(
         `No hay objetivos válidos para el disparo tipo ${type}, se usará solo el objetivo principal.`,
@@ -103,7 +108,7 @@ export class FireShotUseCase {
       validTargets.push(target);
     }
 
-    // Procesa cada coordenada válida e impacta el tablero
+    // 6. Procesar impactos en cada coordenada válida
     for (const currentTarget of validTargets) {
       const result = ShotEvaluatorLogic.evaluate(
         board.ships,
@@ -111,10 +116,10 @@ export class FireShotUseCase {
         currentTarget.col,
       );
 
-      // Solo se registra en la base de datos el disparo principal
       const isMainShot =
         currentTarget.row === target.row && currentTarget.col === target.col;
 
+      // 7. Registrar el disparo principal en base de datos
       if (isMainShot) {
         const createdShot = await this.shotRepository.registerShot(
           gameId,
@@ -136,17 +141,17 @@ export class FireShotUseCase {
         };
       }
 
-      // Si el tablero aún no tiene array de disparos, se inicializa
+      // 8. Inicializar estructura de disparos si aún no existe
       if (!board.shots) {
         board.shots = [];
       }
 
-      // Se agrega cada disparo al tablero como referencia visual
+      // 9. Construir el disparo visual y añadirlo al tablero
       const shotToAdd: Shot =
         isMainShot && primaryShot
           ? { ...primaryShot }
           : {
-              id: -1, // Identificador temporal para disparos secundarios
+              id: -1, // Temporal para disparos secundarios
               gameId,
               shooterId,
               type,
@@ -156,7 +161,6 @@ export class FireShotUseCase {
               createdAt: new Date().toISOString(),
             };
 
-      // Asegura que los datos reflejen esta coordenada
       shotToAdd.target = currentTarget;
       shotToAdd.hit = result.hit;
       shotToAdd.sunkShipId = result.sunkShipId;
@@ -164,13 +168,13 @@ export class FireShotUseCase {
       board.shots.push(shotToAdd);
     }
 
-    // Si no se logró registrar el disparo principal, se considera un error
+    // 10. Validar que el disparo principal se haya registrado correctamente
     if (!primaryShot) {
       this.logger.error('No se pudo registrar el disparo principal');
       throw new Error('Error al registrar el disparo principal');
     }
 
-    // Retorna el disparo registrado y el tablero actualizado
+    // 11. Devolver el disparo principal y el tablero actualizado
     return {
       shot: primaryShot,
       updatedBoard: board,

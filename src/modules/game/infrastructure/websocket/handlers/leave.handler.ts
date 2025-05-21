@@ -60,14 +60,14 @@ export class LeaveHandler {
         `Jugador socketId=${client.id} (userId=${userId}) solicitó abandonar partida gameId=${gameId}`,
       );
 
-      // Notificar a todos los jugadores en la sala sobre la salida
+      // 1. Notificar al resto de jugadores
       this.gameEventEmitter.emitPlayerLeft(gameId, userId, nickname);
 
-      // Desvincular al jugador de la sala de juego
+      // 2. Desvincular al jugador de la sala (WebSocket leave room)
       await this.socketServerAdapter.leaveGameRoom(client.id, gameId);
 
+      // 3. Verificar que la partida exista en base de datos
       const game = await this.gameRepository.findById(gameId);
-
       if (!game) {
         this.logger.warn(
           `No se encontró partida en base de datos al intentar abandonar: gameId=${gameId}`,
@@ -75,20 +75,20 @@ export class LeaveHandler {
         return;
       }
 
-      // Obtener la lista de sockets que quedan en la sala
+      // 4. Obtener sockets restantes en la sala
       const remainingSocketIds =
         this.socketServerAdapter.getSocketsInGame(gameId);
 
-      // Gestionar escenario donde la partida queda completamente vacía
+      // 5. Si no queda nadie, eliminar la partida
       if (remainingSocketIds.length === 0) {
         this.logger.log(
           `La partida gameId=${gameId} quedó vacía tras la salida. Eliminando partida...`,
         );
 
-        // Notificar el abandono completo de la partida
+        // Notificar abandono global
         this.gameEventEmitter.emitGameAbandoned(gameId);
 
-        // Expulsar a cualquier jugador restante (por si acaso)
+        // Expulsar cualquier remanente por seguridad (aunque no deberían existir)
         for (const socketId of remainingSocketIds) {
           this.gameEventEmitter.emitPlayerKicked(
             socketId,
@@ -96,7 +96,7 @@ export class LeaveHandler {
           );
         }
 
-        // Eliminar datos de la partida de la base de datos y caché
+        // Eliminar de base de datos y Redis
         await this.gameRepository.removeAbandonedGames(gameId);
         await this.redisUtils.clearGameRedisState(gameId);
 
@@ -104,25 +104,22 @@ export class LeaveHandler {
         return;
       }
 
-      // Gestionar escenario donde el creador abandona pero quedan otros jugadores
+      // 6. Si el jugador era el creador, asignar nuevo líder automáticamente
       if (game.createdById === userId) {
         this.logger.warn(
           `El creador abandonó la partida gameId=${gameId}. Buscando nuevo creador...`,
         );
 
-        // Seleccionar automáticamente al primer jugador disponible como nuevo creador
         const fallbackSocketId = remainingSocketIds[0];
         const fallbackUserData =
           this.socketServerAdapter.getSocketUserData(fallbackSocketId);
 
         if (fallbackUserData) {
-          // Actualizar creador en la base de datos
           await this.gameRepository.updateGameCreator(
             gameId,
             fallbackUserData.userId,
           );
 
-          // Notificar a todos sobre el cambio de creador
           this.gameEventEmitter.emitCreatorChanged(
             gameId,
             fallbackUserData.userId,

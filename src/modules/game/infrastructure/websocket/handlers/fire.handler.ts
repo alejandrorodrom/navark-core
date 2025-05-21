@@ -15,21 +15,12 @@ import { GameEvents } from '../events/constants/game-events.enum';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
 import { EventPayload } from '../events/types/events-payload.type';
 import { Board } from '../../../domain/models/board.model';
+import { TurnLogicUseCase } from '../../../application/use-cases/turn-logic.use-case';
 
 /**
- * Gestor especializado en procesar acciones de disparo durante una partida de batalla naval.
- *
- * Este componente crítico implementa la mecánica principal del juego y coordina:
- * - Validaciones de turno y estado del juego
- * - Registro y procesamiento de disparos
- * - Actualización del tablero global
- * - Detección de barcos hundidos y jugadores eliminados
- * - Progresión del sistema de armas nucleares
- * - Gestión del flujo de turnos
- *
- * Toda la lógica fundamental del juego relacionada con disparos
- * está encapsulada en este controlador, manteniendo la coherencia
- * del estado de juego y aplicando las reglas de negocio.
+ * FireHandler gestiona todo el flujo de un disparo en la partida.
+ * Se encarga de validar turnos, registrar disparos, actualizar tableros,
+ * y controlar el progreso del arma nuclear y la eliminación de jugadores.
  */
 @Injectable()
 export class FireHandler {
@@ -48,19 +39,16 @@ export class FireHandler {
   ) {}
 
   /**
-   * Procesa un disparo realizado por un jugador, validando todas las reglas del juego
-   * y actualizando el estado de la partida.
+   * Controlador principal del evento de disparo de un jugador.
    *
-   * El proceso incluye:
-   * 1. Validar que la partida esté en curso y sea el turno del jugador
-   * 2. Comprobar que no sea un disparo repetido en las mismas coordenadas
-   * 3. Registrar el disparo y actualizar el estado del tablero
-   * 4. Verificar si algún barco fue hundido y si algún jugador fue eliminado
-   * 5. Actualizar el progreso nuclear del jugador según el resultado
-   * 6. Pasar el turno al siguiente jugador activo
+   * Este método:
+   * - Valida que la partida esté activa y que sea el turno del jugador.
+   * - Evita disparos repetidos.
+   * - Procesa el disparo y actualiza el tablero y el estado nuclear.
+   * - Avanza el turno si el disparo fue válido.
    *
-   * @param client Socket del cliente que realiza el disparo
-   * @param data Datos del disparo incluyendo coordenadas y tipo
+   * @param client Socket del jugador que disparó.
+   * @param data Payload del evento PLAYER_FIRE.
    */
   async onPlayerFire(
     client: SocketWithUser,
@@ -75,24 +63,16 @@ export class FireHandler {
     );
 
     try {
-      // Obtener y validar el estado de la partida
+      // Paso 1: Validar existencia y estado de la partida
       const game = await this.gameRepository.findById(gameId);
-
       if (!game) {
-        this.logger.warn(
-          `Disparo rechazado: Partida gameId=${gameId} no encontrada`,
-        );
         this.gameEventEmitter.emitPlayerFireAck(client.id, {
           success: false,
           error: 'Partida no encontrada.',
         });
         return;
       }
-
       if (game.status !== GameStatus.in_progress) {
-        this.logger.warn(
-          `Disparo rechazado: Partida gameId=${gameId} en estado inválido (${game.status})`,
-        );
         this.gameEventEmitter.emitPlayerFireAck(client.id, {
           success: false,
           error: 'La partida no está en curso.',
@@ -100,13 +80,10 @@ export class FireHandler {
         return;
       }
 
-      // Validar que sea el turno del jugador
+      // Paso 2: Validar que sea el turno del jugador
       const currentTurnUserId =
         await this.turnStateRedis.getCurrentTurn(gameId);
       if (currentTurnUserId !== userId) {
-        this.logger.warn(
-          `Disparo fuera de turno: gameId=${gameId}, disparador=${userId}, turno actual=${currentTurnUserId}`,
-        );
         this.gameEventEmitter.emitPlayerFireAck(client.id, {
           success: false,
           error: 'No es tu turno para disparar.',
@@ -114,11 +91,8 @@ export class FireHandler {
         return;
       }
 
-      // Validar que el tablero exista
+      // Paso 3: Validar y parsear tablero
       if (!game.board) {
-        this.logger.error(
-          `Error crítico: Partida gameId=${gameId} sin tablero inicializado`,
-        );
         this.gameEventEmitter.emitError(
           client.id,
           'Error interno: Tablero no encontrado.',
@@ -126,22 +100,14 @@ export class FireHandler {
         );
         return;
       }
-
-      // Obtener y preparar el tablero
       const board = parseBoard(game.board);
-      if (!board.shots) {
-        board.shots = [];
-      }
+      board.shots ??= [];
 
-      // Validar que no sea un disparo repetido
+      // Paso 4: Verificar que no se repita un disparo
       const alreadyShot = board.shots.some(
         (shot) => shot.target.row === y && shot.target.col === x,
       );
-
       if (alreadyShot) {
-        this.logger.warn(
-          `Disparo repetido bloqueado: gameId=${gameId}, jugador=${nickname}, coordenadas=(${x},${y})`,
-        );
         this.gameEventEmitter.emitPlayerFireAck(client.id, {
           success: false,
           error: 'Ya se ha disparado en esta posición anteriormente.',
@@ -149,11 +115,7 @@ export class FireHandler {
         return;
       }
 
-      // Registrar el disparo y procesar el resultado
-      this.logger.debug(
-        `Procesando disparo en gameId=${gameId}: jugador=${nickname}, coordenadas=(${x},${y}), tipo=${shotType}`,
-      );
-
+      // Paso 5: Registrar el disparo usando la lógica central de disparo
       const result = await this.shotService.registerShot({
         gameId,
         shooterId: userId,
@@ -162,34 +124,24 @@ export class FireHandler {
         board,
       });
 
-      const hitMessage = result.shot.hit ? 'impactó' : 'falló';
-      const sunkMessage = result.shot.sunkShipId
-        ? ` y hundió barco ID=${result.shot.sunkShipId}`
-        : '';
-
-      this.logger.log(
-        `Resultado disparo: gameId=${gameId}, jugador=${nickname}, coordenadas=(${x},${y}), ${hitMessage}${sunkMessage}`,
-      );
-
-      // Notificar a todos los jugadores sobre el disparo
+      // Paso 6: Emitir evento PLAYER_FIRED
       this.gameEventEmitter.emitPlayerFired(gameId, {
         shooterUserId: userId,
         x,
         y,
         hit: result.shot.hit,
-        sunk: result.shot.sunkShipId !== undefined,
+        sunk: !!result.shot.sunkShipId,
       });
 
-      // Actualizar el tablero en la base de datos
+      // Paso 7: Persistir tablero actualizado
       await this.gameRepository.updateGameBoard(gameId, result.updatedBoard);
-      this.logger.debug(`Tablero actualizado en BD para gameId=${gameId}`);
 
-      // Procesar el impacto si hubo uno
+      // Paso 8: Si impactó, evaluar si hay jugadores eliminados
       if (result.shot.hit) {
         await this.handleHitResult(result.updatedBoard, result.shot, gameId);
       }
 
-      // Actualizar progreso nuclear del jugador
+      // Paso 9: Actualizar estado nuclear (progreso o reset)
       await this.handleNuclearProgress(
         gameId,
         userId,
@@ -197,32 +149,29 @@ export class FireHandler {
         shotType as ShotType,
       );
 
-      // Enviar estado nuclear actualizado al jugador
+      // Paso 10: Enviar estado nuclear al jugador
       await this.sendNuclearStatus(gameId, client);
 
-      // Confirmar disparo al jugador que disparó
+      // Paso 11: Confirmación ACK al disparador
       this.gameEventEmitter.emitPlayerFireAck(client.id, {
         success: true,
         hit: result.shot.hit,
-        sunk: result.shot.sunkShipId !== undefined,
+        sunk: !!result.shot.sunkShipId,
       });
 
-      // Enviar actualización del tablero a todos los jugadores
+      // Paso 12: Enviar visualización del tablero
       await this.boardHandler.sendBoardUpdate(client, gameId);
 
-      // Limpiar cualquier timeout pendiente y pasar al siguiente turno
+      // Paso 13: Limpiar timeout de turno actual
       await this.turnTimeoutService.clear(gameId);
 
-      this.logger.debug(
-        `Pasando turno en gameId=${gameId} desde userId=${userId}`,
-      );
+      // Paso 14: Avanzar turno
       await this.turnOrchestratorService.passTurn(gameId, userId);
     } catch (error) {
       this.logger.error(
-        `Error procesando disparo en gameId=${gameId}, jugador=${nickname}`,
+        `Error al procesar disparo: gameId=${gameId}, userId=${userId}`,
         error,
       );
-
       this.gameEventEmitter.emitError(
         client.id,
         'Error interno al procesar el disparo.',
@@ -232,11 +181,10 @@ export class FireHandler {
   }
 
   /**
-   * Procesa el resultado de un disparo exitoso, verificando si el jugador atacado
-   * ha perdido todos sus barcos y debe ser eliminado del juego.
+   * Procesa consecuencias de un disparo exitoso, como eliminación del jugador afectado.
    *
-   * @param updatedBoard Tablero actualizado después del disparo
-   * @param shot Información del disparo realizado
+   * @param updatedBoard Tablero actualizado
+   * @param shot Disparo realizado
    * @param gameId ID de la partida
    * @private
    */
@@ -245,65 +193,31 @@ export class FireHandler {
     shot: Shot,
     gameId: number,
   ): Promise<void> {
-    try {
-      // Buscar el barco impactado
-      const hitShip = updatedBoard.ships.find((ship) =>
-        ship.positions.some(
-          (p) => p.row === shot.target.row && p.col === shot.target.col,
-        ),
-      );
+    const ship = updatedBoard.ships.find((s) =>
+      s.positions.some(
+        (p) => p.row === shot.target.row && p.col === shot.target.col,
+      ),
+    );
+    if (!ship || ship.ownerId == null) return;
 
-      if (!hitShip) {
-        this.logger.warn(
-          `Inconsistencia: No se encontró barco impactado en (${shot.target.row},${shot.target.col})`,
-        );
-        return;
-      }
+    const stillAlive = TurnLogicUseCase.hasShipsAlive(
+      updatedBoard,
+      ship.ownerId,
+    );
 
-      const hitShipOwnerId = hitShip.ownerId;
-
-      if (hitShipOwnerId === null || hitShipOwnerId === undefined) {
-        this.logger.warn(
-          `Barco sin propietario encontrado, ID=${hitShip.shipId}`,
-        );
-        return;
-      }
-
-      // Verificar si el propietario del barco perdió todos sus barcos
-      const playerStillAlive = updatedBoard.ships.some(
-        (ship) => ship.ownerId === hitShipOwnerId && !ship.isSunk,
-      );
-
-      // Si el jugador no tiene más barcos, marcarlo como eliminado
-      if (!playerStillAlive) {
-        this.logger.log(
-          `Eliminando jugador userId=${hitShipOwnerId} en gameId=${gameId} por perder todos sus barcos`,
-        );
-
-        await this.playerRepository.markPlayerAsDefeated(
-          gameId,
-          hitShipOwnerId,
-        );
-
-        this.gameEventEmitter.emitPlayerEliminated(gameId, hitShipOwnerId);
-      }
-    } catch (error) {
-      this.logger.error(`Error al procesar resultado de impacto: ${error}`);
+    if (!stillAlive) {
+      await this.playerRepository.markPlayerAsDefeated(gameId, ship.ownerId);
+      this.gameEventEmitter.emitPlayerEliminated(gameId, ship.ownerId);
     }
   }
 
   /**
-   * Gestiona la actualización del progreso nuclear del jugador basado en el resultado del disparo.
-   *
-   * Reglas:
-   * - Solo disparos simples incrementan el progreso nuclear
-   * - Los impactos aumentan el contador, los fallos lo reinician
-   * - Al alcanzar 6 impactos consecutivos, se desbloquea el armamento nuclear
+   * Controla el progreso del sistema nuclear según disparo y tipo.
    *
    * @param gameId ID de la partida
-   * @param userId ID del usuario que realizó el disparo
-   * @param hit Indica si el disparo impactó un barco
-   * @param shotType Tipo de disparo realizado
+   * @param userId ID del jugador que disparó
+   * @param hit Si el disparo fue exitoso
+   * @param shotType Tipo de disparo
    * @private
    */
   private async handleNuclearProgress(
@@ -312,48 +226,27 @@ export class FireHandler {
     hit: boolean,
     shotType: ShotType,
   ): Promise<void> {
-    // Solo los disparos simples afectan al progreso nuclear
-    if (shotType !== 'simple') {
-      this.logger.debug(
-        `Sin cambios en progreso nuclear: Disparo tipo=${shotType} no califica. gameId=${gameId}, userId=${userId}`,
-      );
-      return;
-    }
+    if (shotType !== 'simple') return;
 
-    // Fallar un disparo reinicia el progreso nuclear
     if (!hit) {
-      this.logger.debug(
-        `Reseteando progreso nuclear por fallo: gameId=${gameId}, userId=${userId}`,
-      );
       await this.nuclearStateRedis.resetNuclearProgress(gameId, userId);
       return;
     }
 
-    // Incrementar el progreso nuclear por cada impacto
     const progress = await this.nuclearStateRedis.incrementNuclearProgress(
       gameId,
       userId,
     );
-
-    this.logger.debug(
-      `Progreso nuclear actualizado: gameId=${gameId}, userId=${userId}, nuevo progreso=${progress}/6`,
-    );
-
-    // Al alcanzar 6 impactos consecutivos, desbloquear el armamento nuclear
     if (progress === 6) {
       await this.nuclearStateRedis.unlockNuclear(gameId, userId);
-      this.logger.log(
-        `¡Arma nuclear desbloqueada! gameId=${gameId}, userId=${userId}`,
-      );
     }
   }
 
   /**
-   * Envía el estado actual de progreso nuclear al cliente.
-   * Incluye información sobre el progreso acumulado, disponibilidad y uso previo.
+   * Envía el estado nuclear actual (progreso, disponibilidad y uso) al jugador.
    *
    * @param gameId ID de la partida
-   * @param client Socket del cliente al que se enviará la información
+   * @param client Socket del jugador
    * @private
    */
   private async sendNuclearStatus(
@@ -361,30 +254,19 @@ export class FireHandler {
     client: SocketWithUser,
   ): Promise<void> {
     try {
-      // Obtener simultáneamente todos los datos del estado nuclear
-      const [progress, available, used] = await Promise.all([
+      const [progress, hasNuclear, used] = await Promise.all([
         this.nuclearStateRedis.getNuclearProgress(gameId, client.data.userId),
         this.nuclearStateRedis.hasNuclearAvailable(gameId, client.data.userId),
         this.nuclearStateRedis.hasNuclearUsed(gameId, client.data.userId),
       ]);
 
-      // Enviar estado nuclear actualizado al jugador usando el método especializado
       this.gameEventEmitter.emitNuclearStatus(
         gameId,
         progress,
-        available,
+        hasNuclear,
         used,
       );
-
-      this.logger.debug(
-        `Estado nuclear enviado: gameId=${gameId}, userId=${client.data.userId}, ` +
-          `progreso=${progress}/6, disponible=${available}, usado=${used}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Error al enviar estado nuclear: gameId=${gameId}, userId=${client.data.userId}, error=${error}`,
-      );
-
+    } catch {
       this.gameEventEmitter.emitError(
         client.id,
         'Error al actualizar estado nuclear',

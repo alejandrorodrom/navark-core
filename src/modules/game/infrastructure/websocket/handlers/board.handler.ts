@@ -9,17 +9,14 @@ import { GameEvents } from '../events/constants/game-events.enum';
 import { EventPayload } from '../events/types/events-payload.type';
 
 /**
- * Servicio responsable de gestionar y distribuir actualizaciones del estado del tablero
- * a los clientes conectados al juego mediante WebSockets.
+ * Servicio encargado de construir y emitir una versión personalizada del tablero
+ * a cada cliente que lo solicite.
  *
- * El BoardHandler cumple una función crítica en el juego:
- * - Personaliza la vista del tablero según el jugador que la solicita
- * - Aplica las reglas de visibilidad de barcos según el modo de juego (individual/equipos)
- * - Entrega a cada cliente solo la información que debe conocer según su rol
- * - Mantiene sincronizados a todos los clientes con el estado más reciente del juego
- *
- * Este servicio sigue el principio de "necesidad de conocer" (need-to-know basis),
- * donde cada cliente recibe solo la información que necesita y está autorizado a ver.
+ * Este handler se asegura de:
+ * - Consultar el estado actual del juego y el tablero desde la base de datos.
+ * - Aplicar reglas de visibilidad por jugador.
+ * - Transformar los datos del tablero a una estructura visual amigable para el cliente.
+ * - Emitir al cliente el evento `BOARD_UPDATE` con su vista personalizada.
  */
 @Injectable()
 export class BoardHandler {
@@ -33,42 +30,33 @@ export class BoardHandler {
   ) {}
 
   /**
-   * Construye y envía a un cliente específico una visión personalizada del tablero actual.
+   * Genera y envía una vista personalizada del tablero al jugador conectado.
    *
-   * Esta función genera un paquete de datos con toda la información que un jugador
-   * necesita para visualizar el estado del tablero de juego, incluyendo:
+   * Este método se invoca típicamente:
+   * - Cuando un jugador se une a una partida.
+   * - Después de reconectarse.
+   * - Tras un disparo que cambia el estado del tablero.
    *
-   * 1. Dimensiones del tablero (tamaño de la cuadrícula)
-   * 2. Ubicación y estado de sus propios barcos
-   * 3. Ubicación de los barcos de sus compañeros de equipo (en modo equipo)
-   * 4. Todos los disparos realizados en el tablero y sus resultados
-   * 5. Estado detallado de daño de sus propios barcos
-   *
-   * La información se filtra para ocultar la posición de los barcos enemigos
-   * que no han sido impactados, manteniendo el elemento estratégico del juego.
-   *
-   * @param client Socket del cliente que solicita la actualización, incluye datos de autenticación
-   * @param gameId Identificador único de la partida que se está visualizando
-   * @returns Promesa que se resuelve cuando se ha enviado la actualización al cliente
+   * @param client Socket del jugador autenticado que recibirá la actualización.
+   * @param gameId ID de la partida a la que pertenece el tablero.
+   * @returns Promesa que se resuelve cuando se emite el evento `BOARD_UPDATE`.
    */
   async sendBoardUpdate(client: SocketWithUser, gameId: number): Promise<void> {
-    // Obtener datos actualizados de la partida desde la base de datos
+    // Paso 1: Obtener el estado actualizado de la partida
     const game = await this.gameRepository.findByIdWithPlayersAndUsers(gameId);
 
-    // Verificar que exista la partida y su tablero
     if (!game?.board) {
       this.logger.warn(`No se encontró tablero para gameId=${gameId}`);
       return;
     }
 
-    // Procesar el tablero desde formato JSON almacenado a objeto de dominio
+    // Paso 2: Parsear el tablero desde el JSON persistido
     const board = parseBoard(game.board);
 
-    // Obtener la configuración actual de equipos para determinar aliados
+    // Paso 3: Obtener configuración de equipos desde Redis
     const teams = await this.teamStateRedis.getAllTeams(gameId);
 
-    // Filtrar barcos visibles para este jugador específico según las reglas del juego
-    // (propios + equipo, pero no los de enemigos)
+    // Paso 4: Determinar qué barcos debe ver este jugador
     const ships = this.boardVisualizationService.getVisibleShips(
       board.ships,
       client.data.userId,
@@ -76,18 +64,18 @@ export class BoardHandler {
       game.gamePlayers,
     );
 
-    // Transformar todos los disparos realizados a formato visual para el cliente
+    // Paso 5: Transformar disparos a estructura visual (`row`, `col`, `hit`)
     const shots = this.boardVisualizationService.getFormattedShots(
       board.shots || [],
     );
 
-    // Obtener estado detallado de daño de los barcos que pertenecen a este jugador
+    // Paso 6: Obtener estado detallado de daño de los barcos propios
     const myShips = this.boardVisualizationService.getMyShipsState(
       board.ships,
       client.data.userId,
     );
 
-    // Preparar el payload tipado para la respuesta
+    // Paso 7: Construir el payload a emitir
     const payload: EventPayload<GameEvents.BOARD_UPDATE> = {
       board: {
         size: board.size,
@@ -97,7 +85,7 @@ export class BoardHandler {
       },
     };
 
-    // Enviar la vista personalizada del tablero al cliente solicitante
+    // Paso 8: Emitir el evento al jugador autenticado
     this.gameEventEmitter.emitBoardUpdate(client.data.userId, payload);
 
     this.logger.debug(

@@ -8,8 +8,12 @@ import { GameEvents } from '../websocket/events/constants/game-events.enum';
 import { SocketWithUser } from '../../domain/types/socket.types';
 
 /**
- * Adaptador para el servidor Socket.IO con métodos tipados
- * para emitir eventos a distintos destinos.
+ * Adaptador centralizado para interactuar con el servidor WebSocket (Socket.IO).
+ *
+ * Este adaptador ofrece una interfaz tipada para:
+ * - Emitir eventos a partidas o jugadores
+ * - Expulsar sockets de la sala o del servidor
+ * - Obtener sockets conectados y su información de usuario
  */
 @Injectable()
 export class SocketServerAdapter {
@@ -17,15 +21,20 @@ export class SocketServerAdapter {
   private server: Server;
 
   /**
-   * Establece la instancia del servidor Socket.IO
+   * Establece la instancia del servidor WebSocket.
+   * Debe llamarse una vez al inicializar el gateway.
+   *
+   * @param server Instancia activa de Socket.IO Server
    */
   setServer(server: Server): void {
     this.server = server;
   }
 
   /**
-   * Obtiene la instancia del servidor Socket.IO
-   * @throws Error si el servidor no ha sido inicializado
+   * Obtiene la instancia del servidor WebSocket.
+   *
+   * @returns Instancia activa de Socket.IO Server
+   * @throws Error si aún no ha sido inicializado
    */
   getServer(): Server {
     if (!this.server) {
@@ -35,10 +44,11 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Emite un evento a todos los clientes en una sala de juego específica.
-   * @param gameId ID de la partida (sala)
-   * @param event Tipo de evento a emitir
-   * @param payload Datos del evento con tipado seguro según el tipo de evento
+   * Emite un evento a todos los sockets en una partida específica.
+   *
+   * @param gameId ID numérico o string de la partida (sala)
+   * @param event Clave del evento a emitir (tipado)
+   * @param payload Carga útil correspondiente al evento
    */
   emitToGame<T extends EventKey>(
     gameId: string | number,
@@ -50,10 +60,11 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Emite un evento a un cliente específico por su ID de socket.
-   * @param socketId ID del socket del cliente
-   * @param event Tipo de evento a emitir
-   * @param payload Datos del evento con tipado seguro según el tipo de evento
+   * Emite un evento a un socket específico.
+   *
+   * @param socketId ID del socket de destino
+   * @param event Evento a emitir
+   * @param payload Datos del evento
    */
   emitToClient<T extends EventKey>(
     socketId: string,
@@ -70,11 +81,11 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Emite un evento a todos los sockets asociados con un usuario específico.
-   * Útil cuando un usuario tiene múltiples conexiones activas.
+   * Emite un evento a todas las conexiones activas de un usuario.
+   *
    * @param userId ID del usuario
-   * @param event Tipo de evento a emitir
-   * @param payload Datos del evento con tipado seguro según el tipo de evento
+   * @param event Evento a emitir
+   * @param payload Datos del evento
    */
   emitToUser<T extends EventKey>(
     userId: number,
@@ -104,10 +115,10 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Expulsa a un jugador del servidor, enviando primero un evento de expulsión
-   * y luego desconectando su socket.
-   * @param socketId ID del socket del jugador
-   * @param reason Motivo de la expulsión
+   * Expulsa a un jugador usando su socketId. Emite un evento previo antes de desconectar.
+   *
+   * @param socketId ID del socket a desconectar
+   * @param reason Motivo de la expulsión (enviado como payload)
    */
   kickPlayerBySocketId(socketId: string, reason: string): void {
     const socket = this.getServer().sockets.sockets.get(socketId);
@@ -125,9 +136,9 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Expulsa a todos los sockets de un usuario del servidor, enviando primero
-   * un evento de expulsión y luego desconectando todos sus sockets.
-   * @param userId ID del usuario a expulsar
+   * Expulsa a todas las conexiones de un jugador usando su userId.
+   *
+   * @param userId ID del jugador
    * @param reason Motivo de la expulsión
    */
   kickPlayerByUserId(userId: number, reason: string): void {
@@ -155,7 +166,8 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Hace que un socket se una a una sala de juego.
+   * Hace que un socket se una a una sala de juego específica.
+   *
    * @param socketId ID del socket
    * @param gameId ID de la partida (sala)
    */
@@ -174,9 +186,10 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Hace que un socket abandone una sala de juego.
+   * Hace que un socket abandone una sala de juego específica.
+   *
    * @param socketId ID del socket
-   * @param gameId ID de la partida (sala)
+   * @param gameId ID de la sala de juego
    */
   async leaveGameRoom(socketId: string, gameId: number): Promise<void> {
     const socket = this.getServer().sockets.sockets.get(socketId);
@@ -193,9 +206,10 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Obtiene la lista de sockets conectados en una sala específica.
-   * @param gameId ID de la partida (sala)
-   * @returns Array de IDs de sockets
+   * Obtiene los IDs de los sockets conectados a una partida específica.
+   *
+   * @param gameId ID de la partida
+   * @returns Lista de socketIds
    */
   getSocketsInGame(gameId: number): string[] {
     const roomName = `game:${gameId}`;
@@ -209,9 +223,10 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Obtiene los datos de usuario asociados a un socket.
+   * Obtiene los datos del usuario asociados a un socket.
+   *
    * @param socketId ID del socket
-   * @returns Datos del usuario o null si no se encontraron
+   * @returns Objeto con userId, nickname e isGuest; o `null` si no se encuentra
    */
   getSocketUserData(
     socketId: string,
@@ -219,6 +234,7 @@ export class SocketServerAdapter {
     const socket = this.getServer().sockets.sockets.get(
       socketId,
     ) as SocketWithUser;
+
     if (socket?.data?.userId) {
       return {
         userId: socket.data.userId,
@@ -226,6 +242,7 @@ export class SocketServerAdapter {
         isGuest: socket.data.isGuest || false,
       };
     }
+
     this.logger.warn(
       `Datos de usuario no encontrados para socketId=${socketId}`,
     );
@@ -233,9 +250,10 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Obtiene todos los sockets asociados a un usuario específico.
+   * Obtiene todos los socketIds pertenecientes a un usuario específico.
+   *
    * @param userId ID del usuario
-   * @returns Array de IDs de sockets pertenecientes al usuario
+   * @returns Lista de socketIds
    */
   getUserSockets(userId: number): string[] {
     const sockets = this.getServer().sockets.sockets;
@@ -255,9 +273,10 @@ export class SocketServerAdapter {
   }
 
   /**
-   * Obtiene todos los usuarios conectados a una sala de juego.
-   * @param gameId ID de la partida (sala)
-   * @returns Map de userId a un array de socketIds
+   * Obtiene todos los usuarios presentes en una partida junto con sus socketIds.
+   *
+   * @param gameId ID de la partida
+   * @returns Mapa de userId → lista de socketIds
    */
   getUsersInGame(gameId: number): Map<number, string[]> {
     const socketIds = this.getSocketsInGame(gameId);
@@ -270,7 +289,7 @@ export class SocketServerAdapter {
         if (!userMap.has(userId)) {
           userMap.set(userId, []);
         }
-        userMap.get(userId)?.push(socketId);
+        userMap.get(userId)!.push(socketId);
       }
     }
 

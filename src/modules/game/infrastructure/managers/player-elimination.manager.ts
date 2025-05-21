@@ -2,45 +2,52 @@ import { Injectable } from '@nestjs/common';
 import { PlayerRepository } from '../../domain/repository/player.repository';
 import { GameWithPlayers } from '../../../../prisma/prisma.types';
 import { parseBoard } from '../../application/mapper/board.mapper';
+import { TurnLogicUseCase } from '../../application/use-cases/turn-logic.use-case';
 
 /**
- * Servicio que identifica y elimina a los jugadores que ya no tienen barcos vivos.
+ * Servicio que identifica y elimina a los jugadores sin barcos vivos en el tablero.
  *
- * Este servicio se ejecuta al finalizar cada turno, y su función es:
- * - Verificar quiénes ya no tienen barcos en el tablero
- * - Marcarlos como eliminados (defeated)
- * - Devolver una lista de userIds eliminados para notificar al cliente
+ * Se ejecuta típicamente al finalizar cada turno, y su propósito es:
+ * - Detectar qué jugadores han sido eliminados (sin barcos activos)
+ * - Persistir su estado como "defeated"
+ * - Retornar sus `userId` para que puedan ser notificados o expulsados
  */
 @Injectable()
 export class PlayerEliminationManager {
   constructor(private readonly playerRepository: PlayerRepository) {}
 
   /**
-   * Marca como eliminados a los jugadores que ya no tienen barcos vivos.
+   * Evalúa y elimina a los jugadores que ya no tienen barcos vivos.
    *
-   * @param game Objeto de partida completo incluyendo jugadores y tablero en crudo (JSON).
-   * @returns Lista de IDs de usuario que fueron eliminados en esta evaluación.
+   * @param game Objeto de partida que incluye jugadores y tablero (en crudo).
+   * @returns Lista de userIds de jugadores eliminados en esta evaluación.
    */
   async eliminateDefeatedPlayers(game: GameWithPlayers): Promise<number[]> {
-    if (!game.board) return []; // Si no hay tablero, no se puede evaluar nada
+    // Si la partida no tiene un tablero cargado, no se puede procesar
+    if (!game.board) return [];
 
-    const board = parseBoard(game.board); // Convierte el tablero crudo en modelo de dominio
+    // Convertimos el tablero de tipo JSON a modelo de dominio
+    const board = parseBoard(game.board);
+
+    // Lista para acumular los IDs de usuarios eliminados
     const eliminatedUserIds: number[] = [];
 
+    // Recorremos todos los jugadores de la partida
     for (const player of game.gamePlayers) {
-      // Evalúa si el jugador tiene al menos un barco no hundido
-      const stillHasShips = board.ships.some(
-        (ship) => ship.ownerId === player.userId && !ship.isSunk,
+      // Verificamos si aún tiene algún barco activo
+      const stillHasShips = TurnLogicUseCase.hasShipsAlive(
+        board,
+        player.userId,
       );
 
-      // Si no tiene barcos y no ha abandonado la partida, se marca como eliminado
+      // Si no tiene barcos y no ha salido manualmente de la partida, lo eliminamos
       if (!stillHasShips && !player.leftAt) {
         await this.playerRepository.markPlayerAsDefeatedById(player.id);
         eliminatedUserIds.push(player.userId);
       }
     }
 
-    // Devuelve los userIds eliminados para emitir eventos al cliente
+    // Retornamos los IDs eliminados para que el sistema pueda emitir eventos de notificación
     return eliminatedUserIds;
   }
 }

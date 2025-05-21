@@ -12,10 +12,26 @@ import { MatchmakingDto } from '../../../domain/dto/matchmaking.dto';
 import { GameStatus } from '../../../../../prisma/prisma.enum';
 import { Board } from '../../../domain/models/board.model';
 
+/**
+ * Repositorio concreto para acceder a la tabla `Game` usando Prisma.
+ *
+ * Implementa todas las operaciones necesarias para:
+ * - Crear partidas manuales o por matchmaking
+ * - Consultar partidas con relaciones cargadas (jugadores, espectadores)
+ * - Actualizar estado y tablero
+ * - Eliminar partidas abandonadas
+ */
 @Injectable()
 export class GamePrismaRepository implements GameRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Crea una partida personalizada (manual) e inserta al jugador como creador.
+   *
+   * @param dto Datos básicos de la partida
+   * @param userId ID del usuario que la crea
+   * @returns Partida creada
+   */
   async createGameWithPlayer(
     dto: CreateGameDto,
     userId: number,
@@ -46,6 +62,13 @@ export class GamePrismaRepository implements GameRepository {
     return game;
   }
 
+  /**
+   * Intenta encontrar una partida disponible por matchmaking. Si no hay, crea una nueva.
+   *
+   * @param dto Preferencias del jugador para la partida
+   * @param userId ID del jugador que busca partida
+   * @returns Partida encontrada o creada
+   */
   async findOrCreateMatch(dto: MatchmakingDto, userId: number): Promise<Game> {
     const found = await this.prisma.game.findFirst({
       where: {
@@ -93,6 +116,12 @@ export class GamePrismaRepository implements GameRepository {
     return newGame;
   }
 
+  /**
+   * Busca una partida por ID incluyendo solo los jugadores.
+   *
+   * @param id ID de la partida
+   * @returns Partida con jugadores o `null`
+   */
   async findByIdWithPlayers(id: number): Promise<GameWithPlayers | null> {
     return this.prisma.game.findUnique({
       where: { id },
@@ -100,6 +129,12 @@ export class GamePrismaRepository implements GameRepository {
     });
   }
 
+  /**
+   * Busca una partida incluyendo jugadores y su información de usuario.
+   *
+   * @param id ID de la partida
+   * @returns Partida con jugadores y usuarios relacionados o `null`
+   */
   async findByIdWithPlayersAndUsers(
     id: number,
   ): Promise<GameWithPlayersAndUsers | null> {
@@ -113,21 +148,40 @@ export class GamePrismaRepository implements GameRepository {
     });
   }
 
+  /**
+   * Obtiene una partida con jugadores y espectadores relacionados.
+   *
+   * @param id ID de la partida
+   * @returns Partida con jugadores y espectadores o `null`
+   */
   async findByIdWithPlayersAndSpectator(
     id: number,
   ): Promise<GameWithPlayersAndSpectator | null> {
     return this.prisma.game.findUnique({
-      where: { id: id },
+      where: { id },
       include: { gamePlayers: true, spectators: true },
     });
   }
 
+  /**
+   * Obtiene una partida por ID sin relaciones.
+   *
+   * @param id ID de la partida
+   * @returns Partida encontrada o `null`
+   */
   async findById(id: number): Promise<Game | null> {
     return this.prisma.game.findUnique({
       where: { id },
     });
   }
 
+  /**
+   * Actualiza el creador (userId) de una partida.
+   *
+   * @param gameId ID de la partida
+   * @param userId ID del nuevo creador
+   * @returns Partida actualizada
+   */
   async updateGameCreator(gameId: number, userId: number): Promise<Game> {
     return this.prisma.game.update({
       where: { id: gameId },
@@ -135,20 +189,45 @@ export class GamePrismaRepository implements GameRepository {
     });
   }
 
+  /**
+   * Inicia la partida: actualiza el estado a `in_progress` y guarda el tablero inicial.
+   *
+   * @param gameId ID de la partida
+   * @param board Tablero inicial serializado
+   * @returns Partida actualizada
+   */
   async updateGameStartBoard(gameId: number, board: Board): Promise<Game> {
     return this.prisma.game.update({
       where: { id: gameId },
-      data: { status: GameStatus.in_progress, board: JSON.stringify(board) },
+      data: {
+        status: GameStatus.in_progress,
+        board: JSON.stringify(board),
+      },
     });
   }
 
+  /**
+   * Actualiza el tablero de juego en curso (sin cambiar estado).
+   *
+   * @param gameId ID de la partida
+   * @param board Tablero actualizado
+   * @returns Partida actualizada
+   */
   async updateGameBoard(gameId: number, board: Board): Promise<Game> {
     return this.prisma.game.update({
       where: { id: gameId },
-      data: { board: JSON.stringify(board) },
+      data: {
+        board: JSON.stringify(board),
+      },
     });
   }
 
+  /**
+   * Marca una partida como finalizada (`finished`).
+   *
+   * @param gameId ID de la partida
+   * @returns Partida actualizada
+   */
   async markGameAsFinished(gameId: number): Promise<Game> {
     return this.prisma.game.update({
       where: { id: gameId },
@@ -156,6 +235,16 @@ export class GamePrismaRepository implements GameRepository {
     });
   }
 
+  /**
+   * Elimina completamente una partida abandonada, incluyendo:
+   * - Disparos (`Shot`)
+   * - Espectadores (`Spectator`)
+   * - Jugadores (`GamePlayer`)
+   * - La propia `Game`
+   *
+   * @param id ID de la partida
+   * @returns Partida eliminada
+   */
   async removeAbandonedGames(id: number): Promise<Game> {
     return this.prisma.$transaction(async (tx) => {
       await tx.shot.deleteMany({ where: { gameId: id } });

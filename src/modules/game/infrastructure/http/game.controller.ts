@@ -13,12 +13,27 @@ import {
 import { GameResponseDto } from '../../domain/dto/game-response.dto';
 import { MatchmakingDto } from '../../domain/dto/matchmaking.dto';
 
+/**
+ * Controlador HTTP para operaciones de juego.
+ *
+ * Permite crear partidas manuales o ingresar mediante matchmaking.
+ */
 @ApiTags('Juego')
 @ApiBearerAuth()
 @Controller('games')
 export class GameController {
   constructor(private readonly gameFacade: GameFacade) {}
 
+  /**
+   * Crea una partida manual con configuración personalizada.
+   *
+   * Requiere autenticación y un cuerpo de tipo `CreateGameDto`.
+   * La partida es creada con los parámetros especificados y se asigna el creador.
+   *
+   * @param dto Datos de creación de la partida
+   * @param userId ID del usuario autenticado (extraído del JWT)
+   * @returns Detalles de la partida creada
+   */
   @UseGuards(JwtAuthGuard)
   @Post('manual')
   @ApiBearerAuth('access-token')
@@ -41,6 +56,16 @@ export class GameController {
     return this.gameFacade.createManualGame(dto, userId);
   }
 
+  /**
+   * Unirse a una partida automáticamente mediante matchmaking.
+   *
+   * Requiere autenticación y parámetros opcionales como modo, dificultad, etc.
+   * Si no hay partidas disponibles, se crea una nueva.
+   *
+   * @param dto Preferencias del jugador para el emparejamiento
+   * @param userId ID del usuario autenticado
+   * @returns Partida encontrada o recién creada
+   */
   @UseGuards(JwtAuthGuard)
   @Post('matchmaking')
   @ApiBearerAuth('access-token')

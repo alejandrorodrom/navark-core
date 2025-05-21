@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Shot, VisualShot } from '../../domain/models/shot.model';
-import {
-  Ship,
-  MyShipState,
-  VisibleShip,
-} from '../../domain/models/ship.model';
+import { Ship, MyShipState, VisibleShip } from '../../domain/models/ship.model';
 import { GamePlayerWithUser } from '../../../../prisma/prisma.types';
 
 /**
@@ -24,16 +20,14 @@ export class BoardVisualizationUseCase {
    *
    * La visibilidad se determina por las siguientes reglas:
    * 1. Un jugador siempre ve sus propios barcos completos.
-   * 2. Un jugador ve los barcos de sus compañeros de equipo (en modo equipo).
-   * 3. Un jugador NO ve los barcos enemigos (a menos que sean impactados, en visualización futura).
-   *
-   * Se enriquece cada barco con datos del jugador propietario (nickname y color).
+   * 2. Un jugador ve los barcos de sus compañeros de equipo (en modo equipos).
+   * 3. Un jugador NO ve los barcos enemigos (salvo que se implementen reglas especiales).
    *
    * @param ships Lista completa de barcos en el tablero
    * @param clientUserId ID del jugador que solicita su vista personalizada
-   * @param teams Mapa socketId (o userId string) → teamId, para identificar compañeros
-   * @param gamePlayers Lista de jugadores en la partida con sus usuarios
-   * @returns Lista de barcos visibles al jugador con información adicional
+   * @param teams Mapa de socketId o userId (string) → teamId
+   * @param gamePlayers Lista de jugadores con su información de usuario
+   * @returns Lista de barcos visibles al jugador, enriquecidos con nickname y color
    */
   getVisibleShips(
     ships: Ship[],
@@ -41,7 +35,7 @@ export class BoardVisualizationUseCase {
     teams: Record<string, number>,
     gamePlayers: GamePlayerWithUser[],
   ): VisibleShip[] {
-    // Identificar el equipo del jugador solicitante
+    // Buscar el socketId o userId string correspondiente al jugador
     const mySocketId = Object.keys(teams).find(
       (key) =>
         gamePlayers.find((p) => p.userId.toString() === key)?.userId ===
@@ -49,7 +43,7 @@ export class BoardVisualizationUseCase {
     );
     const myTeam = mySocketId ? teams[mySocketId] : null;
 
-    // Mapear info visual (nickname y color) por userId
+    // Crear un mapa con nickname y color por userId
     const playerInfo = new Map<number, { nickname: string; color: string }>();
     for (const gp of gamePlayers) {
       playerInfo.set(gp.userId, {
@@ -58,9 +52,9 @@ export class BoardVisualizationUseCase {
       });
     }
 
+    // Filtrar barcos visibles y enriquecer con datos visuales
     return ships
       .filter((ship) => {
-        // Determinar el equipo del dueño del barco
         const ownerSocketId = Object.keys(teams).find(
           (socketId) =>
             gamePlayers.find((p) => p.userId.toString() === socketId)
@@ -68,6 +62,7 @@ export class BoardVisualizationUseCase {
         );
         const ownerTeam = ownerSocketId ? teams[ownerSocketId] : null;
 
+        // Ver barcos propios o de compañeros de equipo
         const isVisible = ship.ownerId === clientUserId || ownerTeam === myTeam;
 
         return isVisible && ship.ownerId !== null;
@@ -83,11 +78,11 @@ export class BoardVisualizationUseCase {
   /**
    * Transforma la lista de disparos en el tablero a un formato visual simplificado.
    *
-   * Cada disparo se representa con coordenadas y resultado ("hit" o "miss"),
-   * permitiendo su renderización gráfica en la interfaz cliente.
+   * Cada disparo se convierte en un objeto `{ row, col, result }` donde result es 'hit' o 'miss'.
+   * Este formato es ideal para renderizado gráfico en la interfaz del cliente.
    *
-   * @param shots Lista completa de disparos registrados en el tablero
-   * @returns Lista de disparos visuales simplificados
+   * @param shots Lista completa de disparos registrados
+   * @returns Lista simplificada de disparos visuales
    */
   getFormattedShots(shots: Shot[]): VisualShot[] {
     return shots.map((shot) => ({
@@ -98,20 +93,18 @@ export class BoardVisualizationUseCase {
   }
 
   /**
-   * Proporciona el estado detallado de los barcos propios del jugador.
+   * Devuelve el estado detallado de los barcos propios del jugador.
    *
-   * Incluye:
-   * - ID del barco
-   * - Si está hundido
-   * - Posiciones impactadas
-   * - Tamaño del barco
+   * Esto incluye:
+   * - Cuáles posiciones están impactadas
+   * - Si el barco está completamente hundido
+   * - Tamaño total del barco
    *
-   * Esta información permite al cliente mostrar el estado de daño de cada barco
-   * y calcular indicadores como porcentaje de flota destruida.
+   * Esta información permite calcular el daño recibido y renderizar gráficamente el estado del jugador.
    *
-   * @param ships Lista completa de barcos del tablero
-   * @param userId ID del jugador que consulta su estado de flota
-   * @returns Lista detallada del estado de cada barco propio
+   * @param ships Lista completa de barcos
+   * @param userId ID del jugador que consulta
+   * @returns Estado detallado de cada barco propio
    */
   getMyShipsState(ships: Ship[], userId: number): MyShipState[] {
     return ships
