@@ -214,10 +214,11 @@ export class StartGameHandler {
       this.logger.error(
         `Error al iniciar partida: gameId=${gameId}, error=${error}`,
       );
-      this.gameEventEmitter.emitToClient(client.id, GameEvents.GAME_START_ACK, {
-        success: false,
-        error: 'Error al generar el tablero de juego',
-      });
+      this.gameEventEmitter.emitGameStartAck(
+        client.id,
+        false,
+        'Error al generar el tablero de juego',
+      );
     }
   }
 
