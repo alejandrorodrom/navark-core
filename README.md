@@ -1,38 +1,58 @@
 # Navark Core - Backend
 
 **Navark Core** es el backend oficial del juego multijugador de batalla naval **Navark**, desarrollado con tecnologías
-modernas para ofrecer una experiencia en tiempo real fluida y robusta.
+modernas para ofrecer una experiencia en tiempo real fluida, estratégica y resiliente.
 
 ---
 
 ## 🚀 Tecnologías principales
 
-- **NestJS** (WebSocket Gateway + HTTP API)
-- **Socket.IO** (Servidor WebSocket en tiempo real)
-- **Prisma ORM + PostgreSQL** (Persistencia de datos estructurada)
-- **Redis** (Sincronización de estados en memoria: turnos, jugadores, equipos, disparos nucleares)
-- **Arquitectura Hexagonal** (separación en capas: `domain` / `application` / `infrastructure`)
+- **NestJS** (WebSocket Gateway + HTTP API, arquitectura modular)
+- **Socket.IO** (Canal de comunicación bidireccional en tiempo real)
+- **Prisma ORM + PostgreSQL** (Gestión robusta de datos relacionales y consultas eficientes)
+- **Redis** (Memoria volátil para sincronización en tiempo real: turnos, estados, reconexiones)
+- **Arquitectura Hexagonal** (Separación de responsabilidades entre `domain`, `application` e `infrastructure`)
 
 ## 🔥 Funcionalidades implementadas
 
-- **Partidas multijugador** con capacidad para **2 a 6 jugadores**
-- **Modos de juego versátiles:**
-    - **Individual**: todos contra todos en batalla campal
-    - **Por equipos**: colaboración estratégica entre aliados
+- **Partidas multijugador** de **2 a 6 jugadores** simultáneos
+- **Modos de juego dinámicos:**
+    - **Individual**: todos contra todos (battle royale por turnos)
+    - **Por equipos**: hasta 5 equipos según configuración de sala
 
-- **Sistema de turnos avanzado** con límite de **30 segundos** por jugador
-- **Arma nuclear especial**: desbloqueada al lograr **6 aciertos consecutivos**
-- **Gestión automática de jugadores:**
-    - Expulsión tras 3 turnos de inactividad
-    - Reconexión inteligente si la partida sigue activa
-    - Reasignación del rol de creador si el anfitrión abandona
+- **Sistema de turnos inteligente:**
+    - **30 segundos por turno**, gestionados por temporizador central
+    - Pérdida de turno si no se dispara dentro del tiempo
+    - Expulsión automática tras 3 turnos consecutivos inactivos
 
-- **Modo espectador** para unirse como observador sin participar
-- **Eliminación automática** de jugadores sin barcos restantes
-- **Soporte híbrido de usuarios** (registrados e invitados)
-- **Estadísticas detalladas** al finalizar cada partida
+- **Sistema nuclear progresivo:**
+    - **6 impactos consecutivos** desbloquean un ataque nuclear
+    - Disparo tipo rombo con múltiples impactos
 
-## 📂 Estructura del proyecto
+- **Reconexión automática:**
+    - Conserva estado, progreso y turno activo
+    - Reconecta al jugador con la misma identidad (JWT o ID)
+
+- **Modo espectador:**
+    - Observación en tiempo real sin interferencia en el juego
+
+- **Soporte híbrido de usuarios:**
+    - Invitados (sin ranking ni historial)
+    - Registrados (con historial, estadísticas, personalización)
+
+- **Limpieza automática de partidas:**
+    - Si todos abandonan, la partida se elimina del sistema
+
+- **Gestión de salas completa:**
+    - Espera activa, asignación manual de equipos
+    - Transferencia de creador en tiempo real
+    - Validaciones estrictas antes de iniciar partida
+
+- **Estadísticas de jugador:**
+    - Individuales por partida
+    - Globales acumuladas (rankings, precisión, victorias)
+
+## 📂 Estructura del Proyecto
 
 | Carpeta           | Propósito                                                             |
 |-------------------|-----------------------------------------------------------------------|
@@ -309,57 +329,55 @@ ocupadas, lo que hace más desafiante encontrar los barcos enemigos en el tabler
 
 #### Gestión de Sala y Conexiones
 
-| Evento                 | Payload                                                  | Descripción                                      |
-|------------------------|----------------------------------------------------------|--------------------------------------------------|
-| `player:joined`        | `{ socketId }`                                           | Notificación de nuevo jugador unido a la sala.   |
-| `player:joined:ack`    | `{ success, room?, createdById?, reconnected?, error? }` | Confirmación de unión exitosa como jugador.      |
-| `spectator:joined:ack` | `{ success, room?, createdById?, reconnected?, error? }` | Confirmación de unión exitosa como espectador.   |
-| `join:denied`          | `{ reason }`                                             | Rechazo de solicitud de unión con motivo.        |
-| `player:left`          | `{ userId, nickname }`                                   | Notificación de salida de un jugador.            |
-| `creator:changed`      | `{ newCreatorUserId, newCreatorNickname }`               | Aviso de cambio de administrador de la partida.  |
-| `creator:transfer:ack` | `{ success, error? }`                                    | Confirmación de transferencia de administración. |
+| Evento                 | Payload                                                  | Descripción                                                        |
+|------------------------|----------------------------------------------------------|--------------------------------------------------------------------|
+| `player:joined`        | `{ socketId }`                                           | Un nuevo jugador se ha unido a la sala.                            |
+| `player:joined:ack`    | `{ success, room?, createdById?, reconnected?, error? }` | Confirmación de ingreso como jugador, con posible reconexión.      |
+| `spectator:joined:ack` | `{ success, room?, createdById?, reconnected?, error? }` | Confirmación de ingreso como espectador.                           |
+| `join:denied`          | `{ reason }`                                             | Rechazo de unión a partida (llena, iniciada, expulsado, etc).      |
+| `player:left`          | `{ userId, nickname }`                                   | Notificación de que un jugador salió o abandonó la partida.        |
+| `creator:changed`      | `{ newCreatorUserId, newCreatorNickname }`               | El rol de administrador ha sido reasignado automáticamente.        |
+| `creator:transfer:ack` | `{ success, error? }`                                    | Confirmación del intento de transferencia de rol de administrador. |
 
 #### Sistema de Turnos y Timeouts
 
-| Evento          | Payload      | Descripción                                            |
-|-----------------|--------------|--------------------------------------------------------|
-| `turn:changed`  | `{ userId }` | Notificación de cambio de turno al siguiente jugador.  |
-| `turn:timeout`  | `{ userId }` | Aviso de tiempo agotado sin acción del jugador actual. |
-| `player:kicked` | `{ reason }` | Notificación de expulsión por inactividad prolongada.  |
+| Evento          | Payload      | Descripción                                                                 |
+|-----------------|--------------|-----------------------------------------------------------------------------|
+| `turn:changed`  | `{ userId }` | Nuevo turno asignado a un jugador.                                          |
+| `turn:timeout`  | `{ userId }` | Jugador no actuó a tiempo (10s) y perdió su turno.                          |
+| `player:kicked` | `{ reason }` | Jugador expulsado automáticamente tras 3 turnos perdidos o abandono manual. |
 
 #### Disparos y Combate
 
-| Evento              | Payload                              | Descripción                                          |
-|---------------------|--------------------------------------|------------------------------------------------------|
-| `player:fired`      | `{ shooterUserId, x, y, hit, sunk }` | Transmisión del resultado de un disparo a todos.     |
-| `player:fire:ack`   | `{ success, hit?, sunk?, error? }`   | Confirmación personal del resultado de tu disparo.   |
-| `player:eliminated` | `{ userId }`                         | Notificación de jugador eliminado por pérdida total. |
-| `nuclear:status`    | `{ progress, hasNuclear, used }`     | Actualización del estado del arma nuclear personal.  |
+| Evento              | Payload                                        | Descripción                                                               |
+|---------------------|------------------------------------------------|---------------------------------------------------------------------------|
+| `player:fired`      | `{ shooterUserId, x, y, hit, sunk, shotType }` | Resultado de disparo transmitido a todos (impacto, hundimiento, agua).    |
+| `player:fire:ack`   | `{ success, hit?, sunk?, error? }`             | Confirmación privada del disparo ejecutado (solo al jugador que disparó). |
+| `player:eliminated` | `{ userId }`                                   | Jugador eliminado por perder todos sus barcos.                            |
+| `nuclear:status`    | `{ progress, hasNuclear, used }`               | Estado del arma nuclear del jugador (carga actual, disponible o usada).   |
 
 #### Estado y Finalización
 
-| Evento           | Payload                                        | Descripción                                      |
-|------------------|------------------------------------------------|--------------------------------------------------|
-| `game:started`   | `{ gameId }`                                   | Aviso de inicio oficial de la partida a todos.   |
-| `game:start:ack` | `{ success, error? }`                          | Confirmación personal de inicio exitoso.         |
-| `game:ended`     | `{ mode, winnerUserId?, winningTeam?, stats }` | Notificación de fin con resultados completos.    |
-| `game:abandoned` | `null`                                         | Aviso de partida cancelada por abandono general. |
-| `board:update`   | `{ board: { size, ships, shots, myShips } }`   | Actualización del estado actual de tu tablero.   |
+| Evento           | Payload                                        | Descripción                                                      |
+|------------------|------------------------------------------------|------------------------------------------------------------------|
+| `game:started`   | `{ gameId }`                                   | La partida ha comenzado oficialmente.                            |
+| `game:start:ack` | `{ success, error? }`                          | Confirmación del intento de iniciar la partida por el creador.   |
+| `game:ended`     | `{ mode, winnerUserId?, winningTeam?, stats }` | Resultado final de la partida con estadísticas por jugador.      |
+| `game:abandoned` | `null`                                         | La partida fue cancelada por abandono de todos los jugadores.    |
+| `board:update`   | `{ board: { size, ships, shots, myShips } }`   | Actualización visual del tablero actual del jugador autenticado. |
 
 #### Preparación y Sincronización
 
-| Evento                | Payload                | Descripción                                         |
-|-----------------------|------------------------|-----------------------------------------------------|
-| `player:ready`        | `{ socketId }`         | Aviso de jugador marcado como listo.                |
-| `player:ready:ack`    | `{ success }`          | Confirmación personal de estado listo registrado.   |
-| `player:ready:notify` | `{ socketId }`         | Notificación global de jugador preparado.           |
-| `all:ready`           | `null`                 | Aviso de que todos los participantes están listos.  |
-| `player:teamAssigned` | `{ socketId, team }`   | Confirmación de asignación exitosa de equipo.       |
-| `player:reconnected`  | `{ userId, nickname }` | Notificación de jugador que ha vuelto a conectarse. |
-| `reconnect:ack`       | `{ success }`          | Confirmación personal de reconexión exitosa.        |
-| `reconnect:failed`    | `{ reason }`           | Aviso de fallo en intento de reconexión.            |
-| `error`               | `{ message, code? }`   | Notificación de error en operación solicitada.      |
-| `heartbeat`           | `null`                 | Señal periódica para verificar conexión activa.     |
+| Evento                | Payload                | Descripción                                                            |
+|-----------------------|------------------------|------------------------------------------------------------------------|
+| `player:ready:ack`    | `{ success }`          | Confirmación de que el estado "listo" fue registrado.                  |
+| `player:ready:notify` | `{ socketId }`         | Notificación general de que un jugador está listo.                     |
+| `all:ready`           | `null`                 | Todos los jugadores están listos para comenzar.                        |
+| `player:teamAssigned` | `{ userId, team }`     | Confirmación de equipo asignado correctamente (modo por equipos).      |
+| `player:reconnected`  | `{ userId, nickname }` | Un jugador se ha reconectado exitosamente a la partida.                |
+| `reconnect:ack`       | `{ success }`          | Confirmación al jugador de que su reconexión fue exitosa.              |
+| `reconnect:failed`    | `{ reason }`           | La reconexión falló (jugador no estaba en la partida o fue expulsado). |
+| `error`               | `{ message, code? }`   | Mensaje genérico de error enviado al cliente.                          |
 
 ## 🧪 Instalación y ejecución local
 
@@ -380,14 +398,6 @@ npx prisma migrate dev
 # Iniciar servidor en modo desarrollo
 npm run start:dev
 ```
-
-## 🔜 Próximas funcionalidades
-
-- **Sistema de chat integrado** para comunicación durante la partida
-- **Personalización de barcos** con diferentes habilidades especiales
-- **Modo torneo** para competiciones organizadas
-- **Sistema de logros** con recompensas desbloqueables
-- **Panel de estadísticas globales** para seguimiento de progreso
 
 ---
 
