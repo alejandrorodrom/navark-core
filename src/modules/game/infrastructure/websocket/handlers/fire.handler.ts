@@ -43,7 +43,7 @@ export class FireHandler {
    *
    * Este método:
    * - Valida que la partida esté activa y que sea el turno del jugador.
-   * - Evita disparos repetidos.
+   * - Evita disparos repetidos o inválidos (incluyendo disparos nucleares usados).
    * - Procesa el disparo y actualiza el tablero y el estado nuclear.
    * - Avanza el turno si el disparo fue válido.
    *
@@ -115,6 +115,27 @@ export class FireHandler {
         return;
       }
 
+      /**
+       * Paso 4.1: Validar si ya usó la bomba nuclear (en caso aplique).
+       *
+       * Si el tipo de disparo es "nuclear", el jugador debe tener disponibilidad,
+       * y no haberla usado previamente.
+       */
+      if (shotType === 'nuclear') {
+        const [hasNuclear, hasUsed] = await Promise.all([
+          this.nuclearStateRedis.hasNuclearAvailable(gameId, userId),
+          this.nuclearStateRedis.hasNuclearUsed(gameId, userId),
+        ]);
+
+        if (!hasNuclear || hasUsed) {
+          this.gameEventEmitter.emitPlayerFireAck(client.id, {
+            success: false,
+            error: 'No puedes usar la bomba nuclear.',
+          });
+          return;
+        }
+      }
+
       // Paso 5: Registrar el disparo usando la lógica central de disparo
       const result = await this.shotService.registerShot({
         gameId,
@@ -149,7 +170,16 @@ export class FireHandler {
         shotType as ShotType,
       );
 
-      // Paso 10: Enviar estado nuclear al jugador
+      /**
+       * Paso 9.1: Si el disparo fue de tipo nuclear, marcarlo como usado.
+       *
+       * Esto evita que el jugador vuelva a disparar con arma nuclear en esta partida.
+       */
+      if (shotType === 'nuclear') {
+        await this.nuclearStateRedis.markNuclearUsed(gameId, userId);
+      }
+
+      // Paso 10: Enviar estado nuclear actualizado al jugador
       await this.sendNuclearStatus(gameId, client);
 
       // Paso 11: Confirmación ACK al disparador
