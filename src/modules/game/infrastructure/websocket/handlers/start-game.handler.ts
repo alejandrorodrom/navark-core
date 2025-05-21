@@ -75,13 +75,10 @@ export class StartGameHandler {
       // Validar que la partida exista
       if (!game) {
         this.logger.warn(`Partida no encontrada. gameId=${gameId}`);
-        this.gameEventEmitter.emitToClient(
+        this.gameEventEmitter.emitGameStartAck(
           client.id,
-          GameEvents.GAME_START_ACK,
-          {
-            success: false,
-            error: 'Partida no encontrada',
-          },
+          false,
+          'Partida no encontrada',
         );
         return;
       }
@@ -91,13 +88,10 @@ export class StartGameHandler {
         this.logger.warn(
           `Usuario no autorizado. userId=${userId}, gameId=${gameId}`,
         );
-        this.gameEventEmitter.emitToClient(
+        this.gameEventEmitter.emitGameStartAck(
           client.id,
-          GameEvents.GAME_START_ACK,
-          {
-            success: false,
-            error: 'Solo el creador puede iniciar la partida',
-          },
+          false,
+          'Solo el creador puede iniciar la partida',
         );
         return;
       }
@@ -113,13 +107,10 @@ export class StartGameHandler {
 
       if (!allPlayersReady) {
         this.logger.warn(`Jugadores no listos. gameId=${gameId}`);
-        this.gameEventEmitter.emitToClient(
+        this.gameEventEmitter.emitGameStartAck(
           client.id,
-          GameEvents.GAME_START_ACK,
-          {
-            success: false,
-            error: 'No todos los jugadores están listos',
-          },
+          false,
+          'No todos los jugadores están listos',
         );
         return;
       }
@@ -134,13 +125,10 @@ export class StartGameHandler {
 
         if (!allPlayersAssignedTeam) {
           this.logger.warn(`Jugadores sin equipo asignado. gameId=${gameId}`);
-          this.gameEventEmitter.emitToClient(
+          this.gameEventEmitter.emitGameStartAck(
             client.id,
-            GameEvents.GAME_START_ACK,
-            {
-              success: false,
-              error: 'No todos los jugadores tienen equipo asignado',
-            },
+            false,
+            'No todos los jugadores tienen equipo asignado',
           );
           return;
         }
@@ -159,13 +147,10 @@ export class StartGameHandler {
           this.logger.warn(
             `No hay equipos con al menos 2 jugadores. gameId=${gameId}`,
           );
-          this.gameEventEmitter.emitToClient(
+          this.gameEventEmitter.emitGameStartAck(
             client.id,
-            GameEvents.GAME_START_ACK,
-            {
-              success: false,
-              error: 'Debe existir al menos un equipo con 2 o más jugadores',
-            },
+            false,
+            'Debe existir al menos un equipo con 2 o más jugadores',
           );
           return;
         }
@@ -216,12 +201,10 @@ export class StartGameHandler {
 
       // Notificar a todos los jugadores que la partida ha comenzado
       this.gameEventEmitter.emitTurnChanged(gameId, game.createdById);
-      this.gameEventEmitter.emit(gameId, GameEvents.GAME_STARTED, { gameId });
+      this.gameEventEmitter.emitGameStarted(gameId);
 
       // Confirmar al creador que el inicio fue exitoso
-      this.gameEventEmitter.emitToClient(client.id, GameEvents.GAME_START_ACK, {
-        success: true,
-      });
+      this.gameEventEmitter.emitGameStartAck(client.id, true);
 
       this.logger.log(`Partida iniciada exitosamente. gameId=${gameId}`);
 
