@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { SocketServerAdapter } from '../../../adapters/socket-server.adapter';
 import { GameEvents } from '../constants/game-events.enum';
 import { EventKey, EventPayload } from '../types/events-payload.type';
@@ -10,8 +10,6 @@ import { EventKey, EventPayload } from '../types/events-payload.type';
  */
 @Injectable()
 export class GameEventEmitter {
-  private readonly logger = new Logger(GameEventEmitter.name);
-
   constructor(private readonly socketServer: SocketServerAdapter) {}
 
   /**
