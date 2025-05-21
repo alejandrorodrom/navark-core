@@ -6,6 +6,7 @@ import { SpectatorRepository } from '../../../domain/repository/spectator.reposi
 import { GameSocketMapRedisRepository } from '../../repository/redis/game-socket-map.redis.repository';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
 import { SocketServerAdapter } from '../../adapters/socket-server.adapter';
+import { PlayerStateRedis } from '../../redis/player-state.redis';
 
 /**
  * Servicio especializado en la gestión de reconexiones de jugadores que se desconectaron
@@ -31,6 +32,7 @@ export class ReconnectHandler {
     private readonly boardHandler: BoardHandler,
     private readonly gameSocketMapRedisRepository: GameSocketMapRedisRepository,
     private readonly gameEventEmitter: GameEventEmitter,
+    private readonly playerStateRedis: PlayerStateRedis,
     private readonly socketServerAdapter: SocketServerAdapter,
   ) {}
 
@@ -83,7 +85,23 @@ export class ReconnectHandler {
         return;
       }
 
-      // 3. Verificar si es jugador registrado o espectador
+      // 3. Verificar si el jugador fue expulsado
+      const isAbandoned = await this.playerStateRedis.isAbandoned(
+        gameId,
+        userId,
+      );
+      if (isAbandoned) {
+        this.logger.warn(
+          `Reconexión denegada: jugador abandono previamente la partida`,
+        );
+        this.gameEventEmitter.emitReconnectFailed(
+          client.id,
+          'No puedes reconectarte a esta partida porque fuiste expulsado',
+        );
+        return;
+      }
+
+      // 4. Verificar si es jugador registrado o espectador
       const [isPlayer, isSpectator] = [
         game.gamePlayers.some((p) => p.userId === userId),
         await this.spectatorRepository.findFirst(gameId, userId),
@@ -102,23 +120,23 @@ export class ReconnectHandler {
         return;
       }
 
-      // 4. Reasignar socket al room de juego
+      // 5. Reasignar socket al room de juego
       await this.socketServerAdapter.joinGameRoom(client.id, gameId);
 
-      // 5. Actualizar mapeo de socket y usuario en Redis
+      // 6. Actualizar mapeo de socket y usuario en Redis
       await this.gameSocketMapRedisRepository.save(client.id, userId, gameId);
 
       this.logger.log(
         `Jugador reconectado: userId=${userId}, gameId=${gameId}`,
       );
 
-      // 6. Restaurar estado visual del tablero para el jugador
+      // 7. Restaurar estado visual del tablero para el jugador
       await this.boardHandler.sendBoardUpdate(client, gameId);
 
-      // 7. Notificar a la sala sobre la reconexión
+      // 8. Notificar a la sala sobre la reconexión
       this.gameEventEmitter.emitPlayerReconnected(gameId, userId, nickname);
 
-      // 8. Confirmar reconexión al cliente
+      // 9. Confirmar reconexión al cliente
       this.gameEventEmitter.emitReconnectAck(client.id, true);
     } catch (error) {
       this.logger.error(

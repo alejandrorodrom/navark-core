@@ -6,6 +6,7 @@ import { GameRepository } from '../../../domain/repository/game.repository';
 import { GameEvents } from '../events/constants/game-events.enum';
 import { GameEventEmitter } from '../events/emitters/game-event.emitter';
 import { EventPayload } from '../events/types/events-payload.type';
+import { PlayerStateRedis } from '../../redis/player-state.redis';
 
 /**
  * Servicio especializado en gestionar la salida de jugadores de partidas en curso,
@@ -28,6 +29,7 @@ export class LeaveHandler {
     private readonly socketServerAdapter: SocketServerAdapter,
     private readonly redisUtils: RedisCleanerOrchestrator,
     private readonly gameEventEmitter: GameEventEmitter,
+    private readonly playerStateRedis: PlayerStateRedis,
   ) {}
 
   /**
@@ -100,11 +102,14 @@ export class LeaveHandler {
         await this.gameRepository.removeAbandonedGames(gameId);
         await this.redisUtils.clearGameRedisState(gameId);
 
+        // Asegurar que se limpian todos los estados de abandono
+        await this.playerStateRedis.clearAllAbandoned(gameId);
+
         this.logger.log(`Partida gameId=${gameId} eliminada exitosamente.`);
         return;
       }
 
-      // 6. Si el jugador era el creador, asignar nuevo líder automáticamente
+      // 7. Si el jugador era el creador, asignar nuevo líder automáticamente
       if (game.createdById === userId) {
         this.logger.warn(
           `El creador abandonó la partida gameId=${gameId}. Buscando nuevo creador...`,

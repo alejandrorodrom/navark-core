@@ -3,6 +3,7 @@ import { TurnStateRedis } from '../redis/turn-state.redis';
 import { ReadyStateRedis } from '../redis/ready-state.redis';
 import { TeamStateRedis } from '../redis/team-state.redis';
 import { NuclearStateRedis } from '../redis/nuclear-state.redis';
+import { PlayerStateRedis } from '../redis/player-state.redis';
 
 /**
  * Servicio orquestador responsable de limpiar los estados en Redis
@@ -13,6 +14,7 @@ import { NuclearStateRedis } from '../redis/nuclear-state.redis';
  * - Estado de "listo" por jugador
  * - Asignación de equipos
  * - Progreso de armamento nuclear
+ * - Estado de abandono de jugadores
  */
 @Injectable()
 export class RedisCleanerOrchestrator {
@@ -23,6 +25,7 @@ export class RedisCleanerOrchestrator {
     private readonly readyStateRedis: ReadyStateRedis,
     private readonly teamsStateRedis: TeamStateRedis,
     private readonly nuclearStateRedis: NuclearStateRedis,
+    private readonly playerStateRedis: PlayerStateRedis,
   ) {}
 
   /**
@@ -47,6 +50,7 @@ export class RedisCleanerOrchestrator {
         this.readyStateRedis.clearReady(gameId),
         this.teamsStateRedis.clearTeams(gameId),
         this.nuclearStateRedis.clearNuclear(gameId),
+        this.playerStateRedis.clearAllAbandoned(gameId),
       ]);
 
       this.logger.log(
