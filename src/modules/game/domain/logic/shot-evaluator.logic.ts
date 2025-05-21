@@ -172,27 +172,4 @@ export class ShotEvaluatorLogic {
       return false;
     });
   }
-
-  /**
-   * Convierte un mapa de Redis con claves tipo `socketId-userId`
-   * a un mapa plano de `userId: teamId`.
-   *
-   * Ejemplo de entrada: `{ "socket-23": 1, "socket-45": 2 }`
-   * Salida: `{ 23: 1, 45: 2 }`
-   *
-   * @param teamsRecord Mapa de Redis con claves string.
-   * @returns Mapa limpio con claves numéricas.
-   */
-  convertTeamsFormat(
-    teamsRecord: Record<string, number>,
-  ): Record<number, number> {
-    const result: Record<number, number> = {};
-
-    for (const [key, teamId] of Object.entries(teamsRecord)) {
-      const userId = parseInt(key.split('-').pop() || '', 10);
-      if (!isNaN(userId)) result[userId] = teamId;
-    }
-
-    return result;
-  }
 }

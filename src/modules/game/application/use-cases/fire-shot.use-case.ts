@@ -48,9 +48,8 @@ export class FireShotUseCase {
   }> {
     const { gameId, shooterId, type, target, board } = params;
 
-    // 1. Obtener equipos desde Redis y convertirlos a formato usable
-    const teamsRaw = await this.teamStateRedis.getAllTeams(gameId);
-    const teams = this.shotEvaluator.convertTeamsFormat(teamsRaw);
+    // 1. Obtener el mapa de equipos desde Redis (formato userId → teamId)
+    const teams = await this.teamStateRedis.getAllTeams(gameId);
 
     // 2. Generar coordenadas afectadas según el tipo de disparo
     const targets = this.shotEvaluator.generateTargetsForShotType(
@@ -67,7 +66,7 @@ export class FireShotUseCase {
     let primaryShot: Shot | null = null;
     const validTargets: ShotTarget[] = [];
 
-    // 4. Filtrar coordenadas que ya fueron disparadas o contienen barcos aliados
+    // 4. Filtrar coordenadas ya disparadas o que impactan barcos aliados
     for (const currentTarget of targets) {
       const alreadyShot = board.shots?.some(
         (shot) =>
@@ -160,10 +159,6 @@ export class FireShotUseCase {
               sunkShipId: result.sunkShipId,
               createdAt: new Date().toISOString(),
             };
-
-      shotToAdd.target = currentTarget;
-      shotToAdd.hit = result.hit;
-      shotToAdd.sunkShipId = result.sunkShipId;
 
       board.shots.push(shotToAdd);
     }
