@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StatsController } from './infrastructure/http/stats.controller';
 import { GetUserStatsUseCase } from './application/use-cases/get-user-stats.use-case';
 import { JwtProviderModule } from '../../shared/jwt/jwt.module';
+import { StatsCalculatorLogic } from './domain/logic/stats-calculator.logic';
 
 @Module({
   imports: [JwtProviderModule],
@@ -18,6 +19,7 @@ import { JwtProviderModule } from '../../shared/jwt/jwt.module';
     GeneratePlayerStatsUseCase,
     GetUserStatsUseCase,
     StatsFacade,
+    StatsCalculatorLogic,
     {
       provide: GamePlayerStatsRepository,
       useClass: GamePlayerStatsPrismaRepository,
